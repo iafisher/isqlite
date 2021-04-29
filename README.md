@@ -18,7 +18,11 @@ schema = [
   ]),
 ]
 
-with Database(schema, "db.sqlite3") as db:
+with Database("db.sqlite3") as db:
+    # Create the tables defined by the schema in the database. This only needs to be
+    # done once.
+    schema.create(db)
+
     # Create a new row in the database.
     pk = db.create("people", {"name": "John Doe", "age": 30})
 

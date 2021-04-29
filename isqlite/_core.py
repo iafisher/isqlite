@@ -3,53 +3,14 @@ import functools
 import re
 import sqlite3
 
-from . import columns as isqlite_columns
 from . import query as q
 from ._exception import ISQLiteError
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
 
 
-class Table:
-    reserved_column_names = {"id", "created_at", "last_updated_at"}
-
-    def __init__(self, name, columns):
-        if name.startswith("isqlite"):
-            raise ISQLiteError(
-                "Table names beginning with 'isqlite' are reserved for internal use by "
-                + "isqlite. Please choose a different name."
-            )
-
-        self.name = name
-        self.columns = collections.OrderedDict()
-
-        self.columns["id"] = isqlite_columns.Integer(
-            "id", autoincrement=True, primary_key=True, required=True
-        )
-        for column in columns:
-            if column.name in self.reserved_column_names:
-                raise ISQLiteError(
-                    f"The column name {column.name!r} is reserved for internal use by "
-                    + "isqlite. Please choose a different name."
-                )
-
-            if column.name in self.columns:
-                raise ISQLiteError(
-                    f"Column {column.name!r} was defined multiple times."
-                )
-
-            self.columns[column.name] = column
-
-        self.columns["created_at"] = isqlite_columns.Timestamp(
-            "created_at", required=True
-        )
-        self.columns["last_updated_at"] = isqlite_columns.Timestamp(
-            "last_updated_at", required=True
-        )
-
-
 class Database:
-    def __init__(self, schema, connection_or_path, *, readonly=None, uri=False):
+    def __init__(self, connection_or_path, *, readonly=None, uri=False):
         # Validate arguments.
         if readonly is not None:
             if uri is True:
@@ -68,13 +29,6 @@ class Database:
         else:
             # Default value of `readonly` if not specified is False.
             readonly = False
-
-        self.schema = collections.OrderedDict()
-        for table in schema:
-            if table.name in self.schema:
-                raise ISQLiteError(f"Table {table.name!r} was defined multiple times.")
-
-            self.schema[table.name] = table
 
         if isinstance(connection_or_path, str):
             if uri:
@@ -231,85 +185,6 @@ class Database:
 
             return row
 
-    def create_database(self):
-        sql = "\n\n".join(
-            generate_create_table_statement(table.name, table.columns.values())
-            for table in self.schema.values()
-        )
-        self.cursor.executescript(sql)
-
-    def add_table(self, table):
-        sql = generate_create_table_statement(table.name, table.columns.values())
-        self.cursor.execute(sql)
-
-    def drop_table(self, table):
-        self.cursor.execute(f"DROP TABLE {table}")
-
-    def add_column(self, table, column):
-        self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column}")
-
-    def drop_column(self, table, column_name):
-        # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
-        # implement it by hand here.
-        remaining_columns = [
-            c for c in self.schema[table].columns.values() if c.name != column_name
-        ]
-        select = ", ".join([c.name for c in remaining_columns])
-        self._migrate_table(table, remaining_columns, select=select)
-
-    def reorder_columns(self, table, column_names):
-        table_schema = self.schema[table]
-        if set(column_names) != set(table_schema.columns.keys()):
-            raise ISQLiteError(
-                "The set of reordered columns is not the same as the set of original "
-                + "columns. Note that you must include the `id`, `created_at`, and "
-                + "`last_updated_at` columns in the list if your table includes them."
-            )
-        columns = [table_schema.columns[name] for name in column_names]
-        self._migrate_table(table, columns, select=", ".join(column_names))
-
-    def alter_column(self, table, column_name, new_column):
-        table_schema = self.schema[table]
-        columns = [
-            column if column.name != column_name else new_column
-            for column in table_schema.columns.values()
-        ]
-        self._migrate_table(
-            table, columns, select=", ".join(table_schema.columns.keys())
-        )
-
-    def rename_column(self, table, old_column_name, new_column_name):
-        # ALTER TABLE ... RENAME COLUMN is only supported since SQLite version 3.25, so
-        # we implement it by hand here.
-        table_schema = self.schema[table]
-        column = table_schema.columns[old_column_name]
-        column.name = new_column_name
-        self.alter_column(table, old_column_name, column)
-
-    def _migrate_table(self, table, columns, *, select):
-        # This procedure is copied from https://sqlite.org/lang_altertable.html
-        self.connection.execute("PRAGMA foreign_keys = off")
-        try:
-            with self.connection:
-                # Create the new table under a temporary name.
-                tmp_table_name = f"isqlite_tmp_{table}"
-                self.sql(generate_create_table_statement(tmp_table_name, columns))
-
-                # Copy over all data from the old table into the new table using the
-                # provided SELECT values.
-                self.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {table}")
-
-                # Drop the old table.
-                self.sql(f"DROP TABLE {table}")
-
-                # Rename the new table to the original name.
-                self.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {table}")
-
-                # Check that no foreign key constraints have been violated.
-                self.sql("PRAGMA foreign_key_check")
-        finally:
-            self.connection.execute("PRAGMA foreign_keys = on")
-
     def close(self):
         self.connection.commit()
         self.connection.close()
@@ -319,18 +194,6 @@ class Database:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
-
-
-def generate_create_table_statement(name, columns):
-    builder = ["CREATE TABLE IF NOT EXISTS ", name, "(\n"]
-    for i, column in enumerate(columns):
-        builder.append("  ")
-        builder.append(str(column))
-        if i != len(columns) - 1:
-            builder.append(",")
-        builder.append("\n")
-    builder.append(");")
-    return "".join(builder)
 
 
 def ordered_dict_row_factory(cursor, row):

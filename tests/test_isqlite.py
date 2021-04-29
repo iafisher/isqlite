@@ -2,55 +2,57 @@ import decimal
 import time
 import unittest
 
-from isqlite import Database, Table, columns
+from isqlite import Database, Schema, Table, columns
 from isqlite import query as q
 from isqlite._core import string_to_camel_case
 
 
 class DatabaseTests(unittest.TestCase):
-    schema = [
-        Table(
-            "departments",
-            [
-                columns.Text("name", required=True),
-                columns.Text("abbreviation", required=True),
-            ],
-        ),
-        Table(
-            "professors",
-            [
-                columns.Text("first_name", required=True),
-                columns.Text("last_name", required=True),
-                columns.ForeignKey("department", "departments", required=True),
-                columns.Boolean("tenured", required=True),
-                columns.Boolean("retired", required=True),
-            ],
-        ),
-        Table(
-            "courses",
-            [
-                columns.Integer("course_number", required=True),
-                columns.ForeignKey("department", "departments", required=True),
-                columns.ForeignKey("instructor", "professors", required=True),
-                columns.Text("title", required=True),
-                columns.Decimal("credits", required=True),
-            ],
-        ),
-        Table(
-            "students",
-            [
-                columns.Integer("student_id", required=True),
-                columns.Text("first_name", required=True),
-                columns.Text("last_name", required=True),
-                columns.ForeignKey("major", "departments", required=False),
-                columns.Integer("graduation_year", required=True),
-            ],
-        ),
-    ]
+    schema = Schema(
+        [
+            Table(
+                "departments",
+                [
+                    columns.Text("name", required=True),
+                    columns.Text("abbreviation", required=True),
+                ],
+            ),
+            Table(
+                "professors",
+                [
+                    columns.Text("first_name", required=True),
+                    columns.Text("last_name", required=True),
+                    columns.ForeignKey("department", "departments", required=True),
+                    columns.Boolean("tenured", required=True),
+                    columns.Boolean("retired", required=True),
+                ],
+            ),
+            Table(
+                "courses",
+                [
+                    columns.Integer("course_number", required=True),
+                    columns.ForeignKey("department", "departments", required=True),
+                    columns.ForeignKey("instructor", "professors", required=True),
+                    columns.Text("title", required=True),
+                    columns.Decimal("credits", required=True),
+                ],
+            ),
+            Table(
+                "students",
+                [
+                    columns.Integer("student_id", required=True),
+                    columns.Text("first_name", required=True),
+                    columns.Text("last_name", required=True),
+                    columns.ForeignKey("major", "departments", required=False),
+                    columns.Integer("graduation_year", required=True),
+                ],
+            ),
+        ]
+    )
 
     def setUp(self):
-        self.db = Database(self.schema, ":memory:")
-        self.db.create_database()
+        self.db = Database(":memory:")
+        self.schema.create(self.db)
         cs_department = self.db.create(
             "departments", {"name": "Computer Science", "abbreviation": "CS"}
         )
