@@ -1,4 +1,5 @@
 import decimal
+import time
 import unittest
 
 from isqlite import Database, Table, columns
@@ -153,12 +154,39 @@ class DatabaseTests(unittest.TestCase):
         non_existent = self.db.get("professors", q.Equals("first_name", "Bob"))
         self.assertIsNone(non_existent)
 
-    def test_update(self):
+    def test_update_with_pk(self):
         professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
         self.assertFalse(professor["retired"])
         self.db.update("professors", professor["id"], {"retired": True})
         professor = self.db.get("professors", professor["id"])
         self.assertTrue(professor["retired"])
+
+    def test_update_with_query(self):
+        self.assertEqual(
+            self.db.count("students", q.GreaterThan("graduation_year", 2025)), 0
+        )
+        self.db.update(
+            "students", q.LessThan("graduation_year", 2025), {"graduation_year": 2026}
+        )
+        self.assertEqual(
+            self.db.count("students", q.GreaterThan("graduation_year", 2025)), 2
+        )
+
+    def test_update_with_full_object(self):
+        professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
+        self.assertFalse(professor["retired"])
+
+        professor["retired"] = True
+        time.sleep(0.1)
+        self.db.update("professors", professor["id"], professor)
+
+        updated_professor = self.db.get("professors", professor["id"])
+        self.assertTrue(updated_professor["retired"])
+        self.assertEqual(professor["id"], updated_professor["id"])
+        self.assertEqual(professor["created_at"], updated_professor["created_at"])
+        self.assertLess(
+            professor["last_updated_at"], updated_professor["last_updated_at"]
+        )
 
     def test_delete(self):
         self.db.delete("students", q.GreaterThan("graduation_year", 2022))

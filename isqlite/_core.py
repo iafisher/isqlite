@@ -179,16 +179,22 @@ class Database:
             [tuple(d.values()) for d in data],
         )
 
-    def update(self, table, pk, data):
-        data.pop("pk", None)
-        data.pop("created_at", None)
-        data.pop("last_updated_at", None)
+    def update(self, table, query, data):
+        sql, values = q.to_sql(query, convert_id=True)
 
-        updates = ", ".join(f"{key}=?" for key in data.keys())
-        updates += (", " if data else "") + "last_updated_at = " + CURRENT_TIMESTAMP
-        self.cursor.execute(
-            f"UPDATE {table} SET {updates} WHERE id = ?;", tuple(data.values()) + (pk,),
-        )
+        updates = []
+        for key, value in data.items():
+            if key == "last_updated_at":
+                continue
+
+            placeholder = f"v{len(values)}"
+            values[placeholder] = value
+            updates.append(f"{key} = :{placeholder}")
+
+        updates.append(f"last_updated_at = {CURRENT_TIMESTAMP}")
+        updates = ", ".join(updates)
+
+        self.cursor.execute(f"UPDATE {table} SET {updates} {sql}", values)
 
     def delete(self, table, query):
         sql, values = q.to_sql(query, convert_id=True)
