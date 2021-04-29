@@ -4,6 +4,7 @@ import unittest
 
 from isqlite import Database, Table, columns
 from isqlite import query as q
+from isqlite._core import string_to_camel_case
 
 
 class DatabaseTests(unittest.TestCase):
@@ -154,6 +155,24 @@ class DatabaseTests(unittest.TestCase):
         non_existent = self.db.get("professors", q.Equals("first_name", "Bob"))
         self.assertIsNone(non_existent)
 
+    def test_get_with_camel_case(self):
+        professor = self.db.get(
+            "professors", q.Equals("last_name", "Knuth"), camel_case=True
+        )
+        self.assertEqual(
+            list(professor.keys()),
+            [
+                "id",
+                "firstName",
+                "lastName",
+                "department",
+                "tenured",
+                "retired",
+                "createdAt",
+                "lastUpdatedAt",
+            ],
+        )
+
     def test_update_with_pk(self):
         professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
         self.assertFalse(professor["retired"])
@@ -220,3 +239,8 @@ class DatabaseTests(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+
+
+class UtilsTests(unittest.TestCase):
+    def test_string_to_camel_case(self):
+        self.assertEqual(string_to_camel_case("last_updated_at"), "lastUpdatedAt")

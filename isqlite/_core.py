@@ -1,5 +1,6 @@
 import collections
 import functools
+import re
 import sqlite3
 
 from . import columns as isqlite_columns
@@ -95,11 +96,16 @@ class Database:
         self.connection.commit()
         self.cursor = self.connection.cursor()
 
-    def get(self, table, query=None):
+    def get(self, table, query=None, *, camel_case=False):
         sql, values = q.to_sql(query, convert_id=True)
-        return self.sql(f"SELECT * FROM {table} {sql}", values, multiple=False)
+        return self.sql(
+            f"SELECT * FROM {table} {sql}",
+            values,
+            camel_case=camel_case,
+            multiple=False,
+        )
 
-    def get_or_create(self, table, data):
+    def get_or_create(self, table, data, *, camel_case=False):
         if not data:
             raise ISQLiteError(
                 "The `data` parameter to `get_or_create` cannot be empty."
@@ -111,13 +117,13 @@ class Database:
         row = self.get(table, query)
         if row is None:
             pk = self.create(table, data)
-            return self.get(table, pk)
+            return self.get(table, pk, camel_case=camel_case)
         else:
             return row
 
-    def list(self, table, query=None, *, limit=None):
+    def list(self, table, query=None, *, camel_case=False, limit=None):
         sql, values = q.to_sql(query)
-        return self.sql(f"SELECT * FROM {table} {sql}", values)
+        return self.sql(f"SELECT * FROM {table} {sql}", values, camel_case=camel_case)
 
     def count(self, table, query=None):
         sql, values = q.to_sql(query)
@@ -200,18 +206,30 @@ class Database:
         sql, values = q.to_sql(query, convert_id=True)
         self.sql(f"DELETE FROM {table} {sql}", values)
 
-    def sql(self, query, values={}, *, as_tuple=False, multiple=True):
+    def sql(self, query, values={}, *, as_tuple=False, camel_case=False, multiple=True):
         if multiple:
             self.cursor.execute(query, values)
             rows = self.cursor.fetchall()
-            return [tuple(row.values()) for row in rows] if as_tuple else rows
+            if as_tuple:
+                return [tuple(row.values()) for row in rows]
+
+            if camel_case:
+                return [row_to_camel_case(row) for row in rows]
+
+            return rows
         else:
             self.cursor.execute(query + " LIMIT 1", values)
             row = self.cursor.fetchone()
             if row is None:
                 return row
 
-            return tuple(row.values()) if as_tuple else row
+            if as_tuple:
+                return tuple(row.values())
+
+            if camel_case:
+                return row_to_camel_case(row)
+
+            return row
 
     def create_database(self):
         sql = "\n\n".join(
@@ -319,3 +337,16 @@ def ordered_dict_row_factory(cursor, row):
     return collections.OrderedDict(
         (column[0], row[i]) for i, column in enumerate(cursor.description)
     )
+
+
+def row_to_camel_case(row):
+    return collections.OrderedDict(
+        (string_to_camel_case(key), value) for key, value in row.items()
+    )
+
+
+camel_case_pattern = re.compile(r"._([a-z])")
+
+
+def string_to_camel_case(s):
+    return camel_case_pattern.sub(lambda m: m.group(0)[0] + m.group(1).upper(), s)
