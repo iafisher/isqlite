@@ -3,11 +3,12 @@ isqlite is a wrapper around Python's SQLite library. It has a more convenient AP
 **WARNING:** isqlite is in beta. Use with caution, and back up your data.
 
 ```python
-from isqlite import Database, Table, columns
+from isqlite import Database, Schema, Table, columns
+from isqlite import query as q
 
 # Note that in addition to the columns declared explicitly, isqlite will automatically
 # create `id`, `created_at` and `last_updated_at` columns.
-schema = [
+schema = Schema([
   Table("teams", [
     columns.Text("name", required=True),
   ]),
@@ -16,7 +17,7 @@ schema = [
     columns.Integer("age", required=False),
     columns.ForeignKey("team", "teams", required=False),
   ]),
-]
+])
 
 with Database("db.sqlite3") as db:
     # Create the tables defined by the schema in the database. This only needs to be
@@ -24,20 +25,20 @@ with Database("db.sqlite3") as db:
     schema.create(db)
 
     # Create a new row in the database.
-    pk = db.create("people", {"name": "John Doe", "age": 30})
+    pk = db.create("employees", {"name": "John Doe", "age": 30})
 
     # Retrieve the row as an OrderedDict.
-    person = db.get("people", pk)
+    person = db.get("employees", pk)
     print(person["name"], person["age"])
 
     # Update the row.
-    db.update("people", pk, {"age": 35})
+    db.update("employees", pk, {"age": 35})
 
     # Delete the row.
-    db.delete("people", pk)
+    db.delete("employees", pk)
 
     # Filter rows with a query.
-    people = db.list("people", q.Like("name", "John%") and q.GreaterThan("age", 40))
+    employees = db.list("employees", q.Like("name", "John%") and q.GreaterThan("age", 40))
 
     # Use raw SQL if necessary.
     pairs = db.sql(
