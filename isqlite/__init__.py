@@ -3,6 +3,7 @@ import decimal
 import sqlite3
 
 from ._core import Database, Table
+from ._exception import ISQLiteError
 
 
 def sqlite3_convert_boolean(b):

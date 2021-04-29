@@ -1,3 +1,6 @@
+from ._exception import ISQLiteError
+
+
 class BaseColumn:
     def __init__(self, name, *, required, extra=""):
         self.name = name
@@ -17,6 +20,11 @@ class Text(BaseColumn):
 class Integer(BaseColumn):
     def __init__(self, *args, autoincrement=False, primary_key=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if autoincrement is True and primary_key is False:
+            raise ISQLiteError(
+                "`autoincrement` may only be True when `primary_key` is True."
+            )
+
         self.autoincrement = autoincrement
         self.primary_key = primary_key
 

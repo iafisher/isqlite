@@ -1,0 +1,2 @@
+class ISQLiteError(Exception):
+    pass

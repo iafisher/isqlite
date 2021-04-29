@@ -4,6 +4,7 @@ import sqlite3
 
 from . import columns as isqlite_columns
 from . import query as q
+from ._exception import ISQLiteError
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
 
@@ -276,7 +277,3 @@ def ordered_dict_row_factory(cursor, row):
     return collections.OrderedDict(
         (column[0], row[i]) for i, column in enumerate(cursor.description)
     )
-
-
-class ISQLiteError(Exception):
-    pass
