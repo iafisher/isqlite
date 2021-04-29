@@ -9,6 +9,9 @@ __pycache__
 *.pyc
 *.mypy_cache
 .venv
+/dist
+/build
+*.egg-info
 
 # JavaScript
 node_modules

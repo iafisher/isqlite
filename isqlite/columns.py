@@ -1,5 +1,5 @@
 class BaseColumn:
-    def __init__(self, name, *, extra="", required=False):
+    def __init__(self, name, *, required, extra=""):
         self.name = name
         self.extra = extra
         self.required = required

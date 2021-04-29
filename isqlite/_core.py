@@ -91,6 +91,7 @@ class Database:
 
         self.connection.row_factory = ordered_dict_row_factory
         self.connection.execute("PRAGMA foreign_keys = on")
+        self.connection.commit()
         self.cursor = self.connection.cursor()
 
     def get(self, table, query=None):
@@ -154,7 +155,7 @@ class Database:
         updates = ", ".join(f"{key}=?" for key in data.keys())
         updates += (", " if data else "") + "last_updated_at = " + CURRENT_TIMESTAMP
         self.cursor.execute(
-            f"UPDATE {table} SET {updates} WHERE pk = ?;", tuple(data.values()) + (pk,),
+            f"UPDATE {table} SET {updates} WHERE id = ?;", tuple(data.values()) + (pk,),
         )
 
     def delete(self, table, query):
@@ -174,7 +175,7 @@ class Database:
             generate_create_table_statement(table.name, table.columns.values())
             for table in self.schema.values()
         )
-        self.cursor.execute(sql)
+        self.cursor.executescript(sql)
 
     def add_table(self, table):
         sql = generate_create_table_statement(table.name, table.columns.values())
