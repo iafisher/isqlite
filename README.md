@@ -1,6 +1,6 @@
-isqlite is a wrapper around Python's SQLite library.
+isqlite is a wrapper around Python's SQLite library. It has a more convenient API, support for automated schema changes, and a command-line interface.
 
-**WARNING:** isqlite is in beta. Make sure to back up your data before using it with isqlite.
+**WARNING:** isqlite is in beta. Use with caution, and back up your data.
 
 ```python
 from isqlite import Database, Table, columns
