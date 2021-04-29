@@ -119,6 +119,13 @@ class Database:
         sql, values = q.to_sql(query)
         return self.sql(f"SELECT * FROM {table} {sql}", values)
 
+    def count(self, table, query=None):
+        sql, values = q.to_sql(query)
+        result = self.sql(
+            f"SELECT COUNT(*) FROM {table} {sql}", values, as_tuple=True, multiple=False
+        )
+        return result[0]
+
     def create(self, table, data):
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
@@ -146,7 +153,31 @@ class Database:
         return self.cursor.lastrowid
 
     def create_many(self, table, data):
-        raise NotImplementedError
+        if not data:
+            return
+
+        keys = list(data[0].keys())
+        placeholders = ",".join("?" for _ in range(len(keys)))
+
+        extra = []
+        if "created_at" not in data[0]:
+            keys.append("created_at")
+            extra.append(CURRENT_TIMESTAMP)
+        if "last_updated_at" not in data[0]:
+            keys.append("last_updated_at")
+            extra.append(CURRENT_TIMESTAMP)
+
+        if extra:
+            extra = (", " if data else "") + ", ".join(extra)
+        else:
+            extra = ""
+
+        self.cursor.executemany(
+            f"""
+            INSERT INTO {table}({', '.join(keys)}) VALUES ({placeholders}{extra});
+            """,
+            [tuple(d.values()) for d in data],
+        )
 
     def update(self, table, pk, data):
         data.pop("pk", None)
@@ -163,13 +194,18 @@ class Database:
         sql, values = q.to_sql(query, convert_id=True)
         self.sql(f"DELETE FROM {table} {sql}", values)
 
-    def sql(self, query, values={}, *, multiple=True):
+    def sql(self, query, values={}, *, as_tuple=False, multiple=True):
         if multiple:
             self.cursor.execute(query, values)
-            return self.cursor.fetchall()
+            rows = self.cursor.fetchall()
+            return [tuple(row.values()) for row in rows] if as_tuple else rows
         else:
             self.cursor.execute(query + " LIMIT 1", values)
-            return self.cursor.fetchone()
+            row = self.cursor.fetchone()
+            if row is None:
+                return row
+
+            return tuple(row.values()) if as_tuple else row
 
     def create_database(self):
         sql = "\n\n".join(

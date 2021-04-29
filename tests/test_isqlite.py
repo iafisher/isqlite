@@ -49,38 +49,84 @@ class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.db = Database(self.schema, ":memory:")
         self.db.create_database()
-        department_pk = self.db.create(
+        cs_department = self.db.create(
             "departments", {"name": "Computer Science", "abbreviation": "CS"}
         )
-        professor_pk = self.db.create(
+        ling_department = self.db.create(
+            "departments", {"name": "Linguistics", "abbreviation": "LING"}
+        )
+        donald_knuth = self.db.create(
             "professors",
             {
                 "first_name": "Donald",
                 "last_name": "Knuth",
-                "department": department_pk,
+                "department": cs_department,
                 "tenured": True,
                 "retired": False,
             },
         )
-        self.db.create(
-            "courses",
+        noam_chomsky = self.db.create(
+            "professors",
             {
-                "course_number": 399,
-                "department": department_pk,
-                "instructor": professor_pk,
-                "title": "Algorithms",
-                "credits": decimal.Decimal(2.0),
+                "first_name": "Noam",
+                "last_name": "Chomsky",
+                "department": ling_department,
+                "tenured": True,
+                "retired": True,
             },
         )
-        self.db.create(
+        self.db.create_many(
+            "courses",
+            [
+                {
+                    "course_number": 399,
+                    "department": cs_department,
+                    "instructor": donald_knuth,
+                    "title": "Algorithms",
+                    "credits": decimal.Decimal(2.0),
+                },
+                {
+                    "couse_number": 101,
+                    "department": ling_department,
+                    "instructor": noam_chomsky,
+                    "title": "Intro to Linguistics",
+                    "credits": decimal.Decimal(1.0),
+                },
+            ],
+        )
+        self.db.create_many(
             "students",
-            {
-                "student_id": 123456,
-                "first_name": "John",
-                "last_name": "Doe",
-                "major": department_pk,
-                "graduation_year": 2023,
-            },
+            [
+                {
+                    "student_id": 123456,
+                    "first_name": "Helga",
+                    "last_name": "Heapsort",
+                    "major": cs_department,
+                    "graduation_year": 2023,
+                },
+                {
+                    "student_id": 456789,
+                    "first_name": "Philip",
+                    "last_name": "Phonologist",
+                    "major": ling_department,
+                    "graduation_year": 2022,
+                },
+            ],
+        )
+
+    def test_count(self):
+        self.assertEqual(self.db.count("departments"), 2)
+        self.assertEqual(self.db.count("professors"), 2)
+        self.assertEqual(self.db.count("courses"), 2)
+        self.assertEqual(self.db.count("students"), 2)
+        self.assertEqual(self.db.count("students", q.Equals("first_name", "Helga")), 1)
+        self.assertEqual(
+            self.db.count(
+                "students",
+                q.LessThan("graduation_year", 2020)
+                | q.Equals("first_name", "Kingsley"),
+            ),
+            0,
         )
 
     def test_get(self):
@@ -132,7 +178,6 @@ class DatabaseTests(unittest.TestCase):
                 },
             )
 
-        self.assertEqual(len(self.db.list("students")), 101)
         students = self.db.list(
             "students",
             q.Equals("graduation_year", 2025) & q.Equals("first_name", "Jane"),
