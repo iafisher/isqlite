@@ -202,7 +202,7 @@ class Database:
             raise ISQLiteError(
                 "The set of reordered columns is not the same as the set of original "
                 + "columns. Note that you must include the `id`, `created_at`, and "
-                + "`last_updated_at` columns in the list."
+                + "`last_updated_at` columns in the list if your table includes them."
             )
         columns = [table_schema.columns[name] for name in column_names]
         self._migrate_table(table, columns, select=", ".join(column_names))
@@ -273,10 +273,9 @@ def generate_create_table_statement(name, columns):
 
 
 def ordered_dict_row_factory(cursor, row):
-    d = collections.OrderedDict()
-    for i, column in enumerate(cursor.description):
-        d[column[0]] = row[i]
-    return d
+    return collections.OrderedDict(
+        (column[0], row[i]) for i, column in enumerate(cursor.description)
+    )
 
 
 class ISQLiteError(Exception):

@@ -140,5 +140,10 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(len(students), 100)
         self.assertEqual(students[0]["first_name"], "Jane")
 
+    # TODO: Test read-only parameter.
+    # TODO: Test create statement with explicit created_at column.
+    # TODO: Test create statement with explicit id column.
+    # TODO: Test migrations.
+
     def tearDown(self):
         self.db.close()
