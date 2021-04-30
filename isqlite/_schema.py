@@ -70,27 +70,31 @@ class Schema:
 
     def _migrate_table(self, db, table, columns, *, select):
         # This procedure is copied from https://sqlite.org/lang_altertable.html
-        db.connection.execute("PRAGMA foreign_keys = off")
         try:
-            with db.connection:
-                # Create the new table under a temporary name.
-                tmp_table_name = f"isqlite_tmp_{table}"
-                db.sql(generate_create_table_statement(tmp_table_name, columns))
+            db.sql("PRAGMA foreign_keys = 0")
 
-                # Copy over all data from the old table into the new table using the
-                # provided SELECT values.
-                db.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {table}")
+            # Create the new table under a temporary name.
+            tmp_table_name = f"isqlite_tmp_{table}"
+            db.sql(generate_create_table_statement(tmp_table_name, columns))
 
-                # Drop the old table.
-                db.sql(f"DROP TABLE {table}")
+            # Copy over all data from the old table into the new table using the
+            # provided SELECT values.
+            db.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {table}")
 
-                # Rename the new table to the original name.
-                db.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {table}")
+            # Drop the old table.
+            db.sql(f"DROP TABLE {table}")
 
-                # Check that no foreign key constraints have been violated.
-                db.sql("PRAGMA foreign_key_check")
+            # Rename the new table to the original name.
+            db.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {table}")
+
+            # Check that no foreign key constraints have been violated.
+            db.sql("PRAGMA foreign_key_check")
+        except Exception:
+            db.rollback()
+        else:
+            db.commit()
         finally:
-            db.connection.execute("PRAGMA foreign_keys = on")
+            db.sql("PRAGMA foreign_keys = on")
 
 
 class Table:

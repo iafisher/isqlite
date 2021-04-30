@@ -46,8 +46,7 @@ class Database:
             self.connection = connection_or_path
 
         self.connection.row_factory = ordered_dict_row_factory
-        self.connection.execute("PRAGMA foreign_keys = on")
-        self.connection.commit()
+        self.connection.execute("PRAGMA foreign_keys = 1")
         self.cursor = self.connection.cursor()
 
     def get(self, table, query=None, *, camel_case=False):
@@ -184,6 +183,12 @@ class Database:
                 return row_to_camel_case(row)
 
             return row
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
 
     def close(self):
         self.connection.commit()
