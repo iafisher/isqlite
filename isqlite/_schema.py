@@ -15,13 +15,13 @@ class Schema:
 
     def create(self, db):
         sql = "\n\n".join(
-            generate_create_table_statement(table.name, table.columns.values())
+            generate_create_table_statement(table.name, table.columns.values(), [])
             for table in self.tables.values()
         )
         db.cursor.executescript(sql)
 
     def add_table(self, db, table):
-        sql = generate_create_table_statement(table.name, table.columns.values())
+        sql = generate_create_table_statement(table.name, table.columns.values(), [])
         db.cursor.execute(sql)
 
     def drop_table(self, db, table):
@@ -135,13 +135,19 @@ class Table:
         )
 
 
-def generate_create_table_statement(name, columns):
+def generate_create_table_statement(name, columns, constraints):
     builder = ["CREATE TABLE IF NOT EXISTS ", name, "(\n"]
-    for i, column in enumerate(columns):
+
+    for i, column in enumerate(list(columns) + constraints):
         builder.append("  ")
+
+        if isinstance(column, isqlite_columns.BaseColumn):
+            column = column.as_raw_column()
         builder.append(str(column))
+
         if i != len(columns) - 1:
             builder.append(",")
         builder.append("\n")
+
     builder.append(");")
     return "".join(builder)

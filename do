@@ -10,7 +10,7 @@ main() {
   subcommand="$1"
   shift
   if [[ "$subcommand" = test ]]; then
-    python3 -m unittest "$@"
+    .venv/bin/python3 -m unittest "$@"
   elif [[ "$subcommand" = publish ]]; then
     # https://packaging.python.org/tutorials/packaging-projects/
     rm -f dist/*

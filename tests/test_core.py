@@ -2,8 +2,9 @@ import time
 import unittest
 
 from isqlite import Database
+from isqlite import columns as isqlite_columns
 from isqlite import query as q
-from isqlite._core import string_to_camel_case
+from isqlite._core import get_columns_from_create_statement, string_to_camel_case
 
 from .common import create_test_data, get_schema
 
@@ -131,6 +132,46 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(len(students), 100)
         self.assertEqual(students[0]["first_name"], "Jane")
 
+    def test_add_column(self):
+        self.db.add_column(
+            "professors", isqlite_columns.Integer("year_of_hire", required=False)
+        )
+
+        professor = self.db.get("professors")
+        self.assertEqual(
+            list(professor.keys()),
+            [
+                "id",
+                "first_name",
+                "last_name",
+                "department",
+                "tenured",
+                "retired",
+                "created_at",
+                "last_updated_at",
+                "year_of_hire",
+            ],
+        )
+        self.assertIsNone(professor["year_of_hire"])
+
+    def test_drop_column(self):
+        self.db.drop_column("professors", "retired")
+
+        professor = self.db.get("professors")
+        self.assertEqual(
+            list(professor.keys()),
+            [
+                "id",
+                "first_name",
+                "last_name",
+                "department",
+                "tenured",
+                "created_at",
+                "last_updated_at",
+            ],
+        )
+        self.assertEqual(self.db.sql("PRAGMA foreign_keys", as_tuple=True)[0][0], 1)
+
     # TODO: Test read-only parameter.
     # TODO: Test create statement with explicit created_at column.
     # TODO: Test create statement with explicit id column.
@@ -143,3 +184,119 @@ class DatabaseTests(unittest.TestCase):
 class UtilsTests(unittest.TestCase):
     def test_string_to_camel_case(self):
         self.assertEqual(string_to_camel_case("last_updated_at"), "lastUpdatedAt")
+        self.assertEqual(string_to_camel_case("_abc"), "_abc")
+
+    def test_get_columns_on_simple_create_statement(self):
+        sql = """
+          CREATE TABLE people(
+            name TEXT,
+            age INTEGER
+          )
+        """
+        columns, constraints = get_columns_from_create_statement(sql)
+        self.assertEqual(
+            columns,
+            [
+                isqlite_columns.RawColumn("name", "TEXT"),
+                isqlite_columns.RawColumn("age", "INTEGER"),
+            ],
+        )
+        self.assertEqual(constraints, [])
+
+    def test_get_columns_on_simple_create_statement_with_semicolon(self):
+        sql = """
+          CREATE TABLE people(
+            name TEXT,
+            age INTEGER
+          );
+        """
+        columns, constraints = get_columns_from_create_statement(sql)
+        self.assertEqual(
+            columns,
+            [
+                isqlite_columns.RawColumn("name", "TEXT"),
+                isqlite_columns.RawColumn("age", "INTEGER"),
+            ],
+        )
+        self.assertEqual(constraints, [])
+
+    def test_get_columns_on_more_complex_create_statement(self):
+        sql = """
+          CREATE TABLE people(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL CHECK(name != ','),
+            age INTEGER DEFAULT 1 + 2,
+            retired BOOLEAN
+          );
+        """
+        columns, constraints = get_columns_from_create_statement(sql)
+        self.assertEqual(
+            columns,
+            [
+                isqlite_columns.RawColumn("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+                isqlite_columns.RawColumn(
+                    "name", "TEXT NOT NULL CHECK ( name != ',' )"
+                ),
+                isqlite_columns.RawColumn("age", "INTEGER DEFAULT 1 + 2"),
+                isqlite_columns.RawColumn("retired", "BOOLEAN"),
+            ],
+        )
+        self.assertEqual(constraints, [])
+
+    def test_get_columns_on_create_statement_with_comments(self):
+        sql = """
+          CREATE TABLE people(
+            -- A single line comment
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            /*
+            A multi-line comment
+            */
+            name TEXT NOT NULL CHECK(name != ','),
+            age INTEGER DEFAULT 1 + 2,
+            retired BOOLEAN
+          );
+        """
+        columns, constraints = get_columns_from_create_statement(sql)
+        self.assertEqual(
+            columns,
+            [
+                isqlite_columns.RawColumn("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+                isqlite_columns.RawColumn(
+                    "name", "TEXT NOT NULL CHECK ( name != ',' )"
+                ),
+                isqlite_columns.RawColumn("age", "INTEGER DEFAULT 1 + 2"),
+                isqlite_columns.RawColumn("retired", "BOOLEAN"),
+            ],
+        )
+        self.assertEqual(constraints, [])
+
+    def test_get_columns_on_create_statement_with_constraints(self):
+        sql = """
+          CREATE TABLE people(
+            id INTEGER NOT NULL,
+            name TEXT,
+            age INTEGER,
+            manager INTEGER NOT NULL,
+            FOREIGN KEY(manager) REFERENCES managers,
+            PRIMARY KEY (id, manager)
+          );
+        """
+        columns, constraints = get_columns_from_create_statement(sql)
+        self.assertEqual(
+            columns,
+            [
+                isqlite_columns.RawColumn("id", "INTEGER NOT NULL"),
+                isqlite_columns.RawColumn("name", "TEXT"),
+                isqlite_columns.RawColumn("age", "INTEGER"),
+                isqlite_columns.RawColumn("manager", "INTEGER NOT NULL"),
+            ],
+        )
+        self.assertEqual(
+            constraints,
+            [
+                isqlite_columns.RawConstraint(
+                    "FOREIGN KEY ( manager ) REFERENCES managers"
+                ),
+                isqlite_columns.RawConstraint("PRIMARY KEY ( id , manager )"),
+            ],
+        )
