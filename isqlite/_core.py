@@ -239,9 +239,7 @@ class Database:
     def rename_column(self, table_name, old_column_name, new_column_name):
         # ALTER TABLE ... RENAME COLUMN is only supported since SQLite version 3.25, so
         # we implement it by hand here.
-        table = self._get_table(table_name)
-        table.columns[old_column_name].name = new_column_name
-        self._migrate_table(table, select=", ".join(table.columns.keys()))
+        raise NotImplementedError
 
     def _migrate_table(self, new_table, *, select):
         name = new_table.name

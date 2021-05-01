@@ -1,4 +1,5 @@
 import decimal
+import sqlite3
 import time
 import unittest
 
@@ -321,7 +322,13 @@ class DatabaseTests(unittest.TestCase):
         after = [dict(row) for row in self.db.list("departments", order_by="name")]
         self.assertEqual(before, after)
 
-    # TODO: Test read-only parameter.
+    def test_cannot_modify_read_only_database(self):
+        db = Database(":memory:", readonly=True)
+        with self.assertRaises(sqlite3.OperationalError):
+            db.create_table(
+                Table("people", [isqlite_columns.Text("name", required=True)])
+            )
+
     # TODO: Test create statement with explicit created_at column.
     # TODO: Test create statement with explicit id column.
     # TODO: Test migrations.
