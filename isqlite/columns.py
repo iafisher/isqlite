@@ -97,10 +97,13 @@ class ForeignKey(BaseColumn):
         return tokens
 
 
-class RawColumn:
+class RawColumn(BaseColumn):
     def __init__(self, name, sql):
         self.name = name
         self.sql = sql
+
+    def as_raw_column(self):
+        return self
 
     def __eq__(self, other):
         if not isinstance(other, RawColumn):

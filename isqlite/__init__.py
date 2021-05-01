@@ -2,9 +2,8 @@ import datetime
 import decimal
 import sqlite3
 
-from ._core import Database
+from ._core import Database, Table
 from ._exception import ISQLiteError
-from ._schema import Schema, Table
 
 
 def sqlite3_convert_boolean(b):

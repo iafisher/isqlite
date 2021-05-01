@@ -17,7 +17,7 @@ setup(
     author="Ian Fisher",
     author_email="iafisher@fastmail.com",
     packages=find_packages(exclude=["tests"]),
-    install_requires=["sqlparse"],
+    install_requires=["sqlparse >= 0.4.1"],
     project_urls={"Source": "https://github.com/iafisher/isqlite"},
     classifiers=[
         "Programming Language :: Python :: 3",

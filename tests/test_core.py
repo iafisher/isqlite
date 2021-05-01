@@ -1,20 +1,136 @@
+import decimal
 import time
 import unittest
 
-from isqlite import Database
+from isqlite import Database, Table
 from isqlite import columns as isqlite_columns
 from isqlite import query as q
-from isqlite._core import get_columns_from_create_statement, string_to_camel_case
-
-from .common import create_test_data, get_schema
+from isqlite._core import get_table_from_create_statement, string_to_camel_case
 
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.db = Database(":memory:")
-        self.schema = get_schema()
-        self.schema.create(self.db)
-        create_test_data(self.db)
+        self.db.create_table(
+            Table(
+                "departments",
+                [
+                    isqlite_columns.Text("name", required=True),
+                    isqlite_columns.Text("abbreviation", required=True),
+                ],
+            )
+        )
+
+        self.db.create_table(
+            Table(
+                "professors",
+                [
+                    isqlite_columns.Text("first_name", required=True),
+                    isqlite_columns.Text("last_name", required=True),
+                    isqlite_columns.ForeignKey(
+                        "department", "departments", required=True
+                    ),
+                    isqlite_columns.Boolean("tenured", required=True),
+                    isqlite_columns.Boolean("retired", required=True),
+                ],
+            )
+        )
+
+        self.db.create_table(
+            Table(
+                "courses",
+                [
+                    isqlite_columns.Integer("course_number", required=True),
+                    isqlite_columns.ForeignKey(
+                        "department", "departments", required=True
+                    ),
+                    isqlite_columns.ForeignKey(
+                        "instructor", "professors", required=True
+                    ),
+                    isqlite_columns.Text("title", required=True),
+                    isqlite_columns.Decimal("credits", required=True),
+                ],
+            )
+        )
+
+        self.db.create_table(
+            Table(
+                "students",
+                [
+                    isqlite_columns.Integer("student_id", required=True),
+                    isqlite_columns.Text("first_name", required=True),
+                    isqlite_columns.Text("last_name", required=True),
+                    isqlite_columns.ForeignKey("major", "departments", required=False),
+                    isqlite_columns.Integer("graduation_year", required=True),
+                ],
+            )
+        )
+
+        cs_department = self.db.create(
+            "departments", {"name": "Computer Science", "abbreviation": "CS"}
+        )
+        ling_department = self.db.create(
+            "departments", {"name": "Linguistics", "abbreviation": "LING"}
+        )
+        donald_knuth = self.db.create(
+            "professors",
+            {
+                "first_name": "Donald",
+                "last_name": "Knuth",
+                "department": cs_department,
+                "tenured": True,
+                "retired": False,
+            },
+        )
+        noam_chomsky = self.db.create(
+            "professors",
+            {
+                "first_name": "Noam",
+                "last_name": "Chomsky",
+                "department": ling_department,
+                "tenured": True,
+                "retired": True,
+            },
+        )
+        self.db.create_many(
+            "courses",
+            [
+                {
+                    "course_number": 399,
+                    "department": cs_department,
+                    "instructor": donald_knuth,
+                    "title": "Algorithms",
+                    "credits": decimal.Decimal(2.0),
+                },
+                {
+                    "couse_number": 101,
+                    "department": ling_department,
+                    "instructor": noam_chomsky,
+                    "title": "Intro to Linguistics",
+                    "credits": decimal.Decimal(1.0),
+                },
+            ],
+        )
+        self.db.create_many(
+            "students",
+            [
+                {
+                    "student_id": 123456,
+                    "first_name": "Helga",
+                    "last_name": "Heapsort",
+                    "major": cs_department,
+                    "graduation_year": 2023,
+                },
+                {
+                    "student_id": 456789,
+                    "first_name": "Philip",
+                    "last_name": "Phonologist",
+                    "major": ling_department,
+                    "graduation_year": 2022,
+                },
+            ],
+        )
+        self.db.commit()
 
     def test_count(self):
         self.assertEqual(self.db.count("departments"), 2)
@@ -172,6 +288,39 @@ class DatabaseTests(unittest.TestCase):
         )
         self.assertEqual(self.db.sql("PRAGMA foreign_keys", as_tuple=True)[0][0], 1)
 
+    def test_alter_column(self):
+        professor_before = self.db.get("professors")
+
+        self.db.alter_column(
+            "professors", "tenured", isqlite_columns.Integer("tenured", required=True)
+        )
+
+        professor_after = self.db.get("professors")
+        # This assertion is a little tricky, because True == 1 and isinstance(True, int)
+        # are both true, so e.g.
+        #
+        #     self.assertEqual(professor["tenured"], 1)
+        #
+        # wouldn't work because it would be true even if the alter column operation
+        # didn't work.
+        #
+        # Instead, we assert that professor["tenured"] is NOT a boolean.
+        self.assertFalse(isinstance(professor_after["tenured"], bool))
+        # Sanity check that we didn't mess up other columns.
+        self.assertEqual(professor_before, professor_after)
+
+    def test_reorder_columns(self):
+        # We convert the rows to a regular dictionary because the OrderedDicts won't
+        # compare equal after the reordering operation.
+        before = [dict(row) for row in self.db.list("departments", order_by="name")]
+
+        reordered = ["id", "abbreviation", "name", "created_at", "last_updated_at"]
+        self.db.reorder_columns("departments", reordered)
+
+        self.assertEqual(list(self.db.get("departments").keys()), reordered)
+        after = [dict(row) for row in self.db.list("departments", order_by="name")]
+        self.assertEqual(before, after)
+
     # TODO: Test read-only parameter.
     # TODO: Test create statement with explicit created_at column.
     # TODO: Test create statement with explicit id column.
@@ -186,41 +335,43 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(string_to_camel_case("last_updated_at"), "lastUpdatedAt")
         self.assertEqual(string_to_camel_case("_abc"), "_abc")
 
-    def test_get_columns_on_simple_create_statement(self):
+    def test_get_table_on_simple_create_statement(self):
         sql = """
           CREATE TABLE people(
             name TEXT,
             age INTEGER
           )
         """
-        columns, constraints = get_columns_from_create_statement(sql)
+        table = get_table_from_create_statement("people", sql)
         self.assertEqual(
-            columns,
+            list(table.columns.values()),
             [
                 isqlite_columns.RawColumn("name", "TEXT"),
                 isqlite_columns.RawColumn("age", "INTEGER"),
             ],
         )
-        self.assertEqual(constraints, [])
+        self.assertEqual(table.constraints, [])
+        self.assertFalse(table.without_rowid)
 
-    def test_get_columns_on_simple_create_statement_with_semicolon(self):
+    def test_get_table_on_simple_create_statement_with_semicolon(self):
         sql = """
           CREATE TABLE people(
             name TEXT,
             age INTEGER
           );
         """
-        columns, constraints = get_columns_from_create_statement(sql)
+        table = get_table_from_create_statement("people", sql)
         self.assertEqual(
-            columns,
+            list(table.columns.values()),
             [
                 isqlite_columns.RawColumn("name", "TEXT"),
                 isqlite_columns.RawColumn("age", "INTEGER"),
             ],
         )
-        self.assertEqual(constraints, [])
+        self.assertEqual(table.constraints, [])
+        self.assertFalse(table.without_rowid)
 
-    def test_get_columns_on_more_complex_create_statement(self):
+    def test_get_table_on_more_complex_create_statement(self):
         sql = """
           CREATE TABLE people(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -229,9 +380,9 @@ class UtilsTests(unittest.TestCase):
             retired BOOLEAN
           );
         """
-        columns, constraints = get_columns_from_create_statement(sql)
+        table = get_table_from_create_statement("people", sql)
         self.assertEqual(
-            columns,
+            list(table.columns.values()),
             [
                 isqlite_columns.RawColumn("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
                 isqlite_columns.RawColumn(
@@ -241,9 +392,10 @@ class UtilsTests(unittest.TestCase):
                 isqlite_columns.RawColumn("retired", "BOOLEAN"),
             ],
         )
-        self.assertEqual(constraints, [])
+        self.assertEqual(table.constraints, [])
+        self.assertFalse(table.without_rowid)
 
-    def test_get_columns_on_create_statement_with_comments(self):
+    def test_get_table_on_create_statement_with_comments(self):
         sql = """
           CREATE TABLE people(
             -- A single line comment
@@ -256,9 +408,9 @@ class UtilsTests(unittest.TestCase):
             retired BOOLEAN
           );
         """
-        columns, constraints = get_columns_from_create_statement(sql)
+        table = get_table_from_create_statement("people", sql)
         self.assertEqual(
-            columns,
+            list(table.columns.values()),
             [
                 isqlite_columns.RawColumn("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
                 isqlite_columns.RawColumn(
@@ -268,9 +420,10 @@ class UtilsTests(unittest.TestCase):
                 isqlite_columns.RawColumn("retired", "BOOLEAN"),
             ],
         )
-        self.assertEqual(constraints, [])
+        self.assertEqual(table.constraints, [])
+        self.assertFalse(table.without_rowid)
 
-    def test_get_columns_on_create_statement_with_constraints(self):
+    def test_get_table_on_create_statement_with_constraints(self):
         sql = """
           CREATE TABLE people(
             id INTEGER NOT NULL,
@@ -281,9 +434,9 @@ class UtilsTests(unittest.TestCase):
             PRIMARY KEY (id, manager)
           );
         """
-        columns, constraints = get_columns_from_create_statement(sql)
+        table = get_table_from_create_statement("people", sql)
         self.assertEqual(
-            columns,
+            list(table.columns.values()),
             [
                 isqlite_columns.RawColumn("id", "INTEGER NOT NULL"),
                 isqlite_columns.RawColumn("name", "TEXT"),
@@ -292,7 +445,7 @@ class UtilsTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            constraints,
+            table.constraints,
             [
                 isqlite_columns.RawConstraint(
                     "FOREIGN KEY ( manager ) REFERENCES managers"
@@ -300,3 +453,49 @@ class UtilsTests(unittest.TestCase):
                 isqlite_columns.RawConstraint("PRIMARY KEY ( id , manager )"),
             ],
         )
+        self.assertFalse(table.without_rowid)
+
+    def test_get_table_on_without_rowid_table(self):
+        sql = """
+          CREATE TABLE people(
+            name TEXT,
+            age INTEGER
+          ) WITHOUT ROWID
+        """
+        table = get_table_from_create_statement("people", sql)
+        self.assertEqual(
+            list(table.columns.values()),
+            [
+                isqlite_columns.RawColumn("name", "TEXT"),
+                isqlite_columns.RawColumn("age", "INTEGER"),
+            ],
+        )
+        self.assertEqual(table.constraints, [])
+        self.assertTrue(table.without_rowid)
+
+    def test_get_table_with_quoted_names(self):
+        # Based on https://sqlite.org/lang_keywords.html
+        sql = """
+          CREATE TABLE people(
+            "name" TEXT,
+            [age] INTEGER,
+            `rank` INTEGER,
+            /*
+            Strict SQL doesn't allow single quotes for quoted identifiers, but SQLite
+            accepts it for backwards compatibility.
+            */
+            'pay' DECIMAL
+          )
+        """
+        table = get_table_from_create_statement("people", sql)
+        self.assertEqual(
+            list(table.columns.values()),
+            [
+                isqlite_columns.RawColumn("name", "TEXT"),
+                isqlite_columns.RawColumn("age", "INTEGER"),
+                isqlite_columns.RawColumn("rank", "INTEGER"),
+                isqlite_columns.RawColumn("pay", "DECIMAL"),
+            ],
+        )
+        self.assertEqual(table.constraints, [])
+        self.assertFalse(table.without_rowid)

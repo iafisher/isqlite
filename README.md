@@ -3,26 +3,24 @@ isqlite is a wrapper around Python's SQLite library. It has a more convenient AP
 **WARNING:** isqlite is in beta. Use with caution, and back up your data.
 
 ```python
-from isqlite import Database, Schema, Table, columns
+from isqlite import Database, Table, columns
 from isqlite import query as q
 
 # Note that in addition to the columns declared explicitly, isqlite will automatically
 # create `id`, `created_at` and `last_updated_at` columns.
-schema = Schema([
-  Table("teams", [
-    columns.Text("name", required=True),
-  ]),
-  Table("employees", [
-    columns.Text("name", required=True),
-    columns.Integer("age", required=False),
-    columns.ForeignKey("team", "teams", required=False),
-  ]),
+teams_table = Table("teams", [
+  columns.Text("name", required=True),
+])
+employees_table = Table("employees", [
+  columns.Text("name", required=True),
+  columns.Integer("age", required=False),
+  columns.ForeignKey("team", "teams", required=False),
 ])
 
 with Database("db.sqlite3") as db:
-    # Create the tables defined by the schema in the database. This only needs to be
-    # done once.
-    schema.create(db)
+    # Create the tables defined in the database. This only needs to be done once.
+    db.create_table(teams_table)
+    db.create_table(employees_table)
 
     # Create a new row in the database.
     pk = db.create("employees", {"name": "John Doe", "age": 30})
