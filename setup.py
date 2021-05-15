@@ -16,6 +16,7 @@ setup(
     license="MIT",
     author="Ian Fisher",
     author_email="iafisher@fastmail.com",
+    entry_points={"console_scripts": ["isqlite = isqlite.main:cli"]},
     packages=find_packages(exclude=["tests"]),
     install_requires=["sqlparse >= 0.4.1"],
     project_urls={"Source": "https://github.com/iafisher/isqlite"},

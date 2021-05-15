@@ -82,6 +82,7 @@ class Database:
         sql, values = q.to_sql(query)
         if order_by is not None:
             sql = f"{sql} ORDER BY {order_by}"
+        print(sql)
         return self.sql(f"SELECT * FROM {table} {sql}", values, camel_case=camel_case)
 
     def count(self, table, query=None):

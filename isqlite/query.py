@@ -12,6 +12,14 @@ class BaseQuery:
         return Not(self)
 
 
+class Sql(BaseQuery):
+    def __init__(self, sql):
+        self.sql = sql
+
+    def to_sql(self, values):
+        return self.sql
+
+
 class Equals(BaseQuery):
     def __init__(self, column, value):
         self.column = column
