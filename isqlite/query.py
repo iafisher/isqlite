@@ -54,7 +54,7 @@ class GreaterThanOrEquals(BaseComparator):
 
 
 class LessThanOrEquals(BaseComparator):
-    operator = ">="
+    operator = "<="
 
 
 class Like(BaseComparator):
