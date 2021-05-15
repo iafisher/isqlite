@@ -1,4 +1,7 @@
 class BaseQuery:
+    def to_sql(self, values):
+        raise NotImplementedError
+
     def __and__(self, other):
         # A & B
         return And(self, other)
@@ -18,7 +21,7 @@ class Sql(BaseQuery):
         self.values = values
 
     def to_sql(self, values):
-        for key, value in self.values:
+        for key, value in self.values.items():
             values[key] = value
 
         return self.sql
@@ -73,9 +76,9 @@ class Between(BaseQuery):
         self.right = right
 
     def to_sql(self, values):
-        left_sql = self.left.to_sql(values)
-        right_sql = self.right.to_sql(values)
-        return f"self.column BETWEEN ({left_sql}) AND ({right_sql})"
+        left_key = register_key(values, self.left)
+        right_key = register_key(values, self.right)
+        return f"{self.column} BETWEEN :{left_key} AND :{right_key}"
 
 
 class And(BaseQuery):
