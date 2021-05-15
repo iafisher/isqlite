@@ -269,7 +269,7 @@ class Database:
         else:
             self.commit()
         finally:
-            self.sql("PRAGMA foreign_keys = on")
+            self.sql("PRAGMA foreign_keys = 1")
 
     def _get_table(self, table_name):
         sql = self.sql(
