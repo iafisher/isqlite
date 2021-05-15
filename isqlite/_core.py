@@ -101,7 +101,6 @@ class Database:
                     "The `descending` parameter to `list` requires the `order_by` "
                     + "parameter to be set."
                 )
-        print(sql)
         return self.sql(f"SELECT * FROM {table} {sql}", values, camel_case=camel_case)
 
     def count(self, table, query=None):
