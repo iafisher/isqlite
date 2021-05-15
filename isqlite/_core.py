@@ -77,11 +77,30 @@ class Database:
         else:
             return row
 
-    def list(self, table, query=None, *, camel_case=False, limit=None, order_by=None):
+    def list(
+        self,
+        table,
+        query=None,
+        *,
+        camel_case=False,
+        limit=None,
+        order_by=None,
+        descending=None,
+    ):
         # TODO(2021-04-30): Use `limit` parameter.
         sql, values = q.to_sql(query)
         if order_by is not None:
-            sql = f"{sql} ORDER BY {order_by}"
+            if isinstance(order_by, (tuple, list)):
+                order_by = ", ".join(order_by)
+
+            direction = "DESC" if descending is True else "ASC"
+            sql = f"{sql} ORDER BY {order_by} {direction}"
+        else:
+            if descending is not None:
+                raise ISQLiteError(
+                    "The `descending` parameter to `list` requires the `order_by` "
+                    + "parameter to be set."
+                )
         print(sql)
         return self.sql(f"SELECT * FROM {table} {sql}", values, camel_case=camel_case)
 

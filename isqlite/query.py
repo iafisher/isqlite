@@ -13,51 +13,69 @@ class BaseQuery:
 
 
 class Sql(BaseQuery):
-    def __init__(self, sql):
+    def __init__(self, sql, values):
         self.sql = sql
+        self.values = values
 
     def to_sql(self, values):
+        for key, value in self.values:
+            values[key] = value
+
         return self.sql
 
 
-class Equals(BaseQuery):
+class BaseComparator(BaseQuery):
     def __init__(self, column, value):
         self.column = column
         self.value = value
 
     def to_sql(self, values):
         key = register_key(values, self.value)
-        return f"{self.column} = :{key}"
+        return f"{self.column} {self.operator} :{key}"
 
 
-class GreaterThan(BaseQuery):
-    def __init__(self, column, value):
+class Equals(BaseComparator):
+    operator = "="
+
+
+class GreaterThan(BaseComparator):
+    operator = ">"
+
+
+class LessThan(BaseComparator):
+    operator = "<"
+
+
+class GreaterThanOrEquals(BaseComparator):
+    operator = ">="
+
+
+class LessThanOrEquals(BaseComparator):
+    operator = ">="
+
+
+class Like(BaseComparator):
+    operator = "LIKE"
+
+
+class IsNull(BaseQuery):
+    def __init__(self, column):
         self.column = column
-        self.value = value
 
     def to_sql(self, values):
-        key = register_key(values, self.value)
-        return f"{self.column} > :{key}"
+        return f"{self.column} IS NULL"
 
 
-class LessThan(BaseQuery):
-    def __init__(self, column, value):
+class Between(BaseQuery):
+    def __init__(self, column, left, right):
         self.column = column
-        self.value = value
+        self.left = left
+        self.right = right
 
     def to_sql(self, values):
-        key = register_key(values, self.value)
-        return f"{self.column} < :{key}"
-
-
-class Like(BaseQuery):
-    def __init__(self, column, value):
-        self.column = column
-        self.value = value
-
-    def to_sql(self, values):
-        key = register_key(values, self.value)
-        return f"{self.column} LIKE :{key}"
+        left_sql = self.left.to_sql(values)
+        right_sql = self.right.to_sql(values)
+        return f"self.column BETWEEN ({left_sql}) AND ({right_sql})"
 
 
 class And(BaseQuery):
