@@ -171,11 +171,13 @@ def main_schema(path_to_database, table=""):
 @cli.command(name="sql")
 @click.argument("path_to_database")
 @click.argument("query")
-def main_sql(path_to_database, query):
+@click.option("--write", is_flag=True, default=False)
+def main_sql(path_to_database, query, *, write):
     """
     Run a SQL command.
     """
-    with Database(path_to_database, readonly=True) as db:
+    readonly = not write
+    with Database(path_to_database, readonly=readonly) as db:
         rows = db.sql(query)
         if rows:
             prettyprint_rows(rows)
