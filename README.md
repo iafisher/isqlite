@@ -58,7 +58,7 @@ with Database("db.sqlite3") as db:
 - A more convenient API.
     - e.g., `db.create("people", {"name": "John Doe"})` instead of `cursor.execute("INSERT INTO people VALUES ('John Doe')")`
     - Rows are returned as `OrderedDict` objects instead of tuples.
-    - Helper methods simplify common patterns, e.g. `get_or_create`.
+    - Helper methods to simplify common patterns, e.g. `get_or_create`.
 - Automated database migrations: adding, removing, altering and reordering columns.
 - Support for `decimal.Decimal`, `datetime.time` and `bool` database columns.
 - A command-line interface.
