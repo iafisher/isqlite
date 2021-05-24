@@ -80,12 +80,34 @@ def main_delete(path_to_database, table, pk):
         print()
         if not click.confirm("Are you sure you wish to delete this record?"):
             print()
-            print("Deletion aborted.")
+            print("Operation aborted.")
             sys.exit(1)
 
         db.delete(table, pk)
         print()
         print(f"Row {pk} deleted.")
+
+
+@cli.command(name="drop-column")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("column")
+def main_drop_column(path_to_database, table, column):
+    """
+    Drop a column from a table.
+    """
+    with Database(path_to_database) as db:
+        count = db.count(table)
+        print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+        print()
+        if not click.confirm("Are you sure you wish to drop this column?"):
+            print()
+            print("Operation aborted.")
+            sys.exit(1)
+
+        db.drop_column(table, column)
+        print()
+        print(f"Column {column!r} dropped from table {table!r}.")
 
 
 @cli.command(name="get")
