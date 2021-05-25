@@ -1,12 +1,10 @@
 import collections
-import functools
 import re
 import sqlite3
 
 import sqlparse
 
 from . import columns as isqlite_columns
-from . import query as q
 from ._exception import ISQLiteError
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
@@ -52,13 +50,17 @@ class Database:
         self.connection.execute("PRAGMA foreign_keys = 1")
         self.cursor = self.connection.cursor()
 
-    def get(self, table, query=None, *, camel_case=False):
-        sql, values = q.to_sql(query, convert_id=True)
+    def get(self, table, *, where="1", values={}, camel_case=False):
         return self.sql(
-            f"SELECT * FROM {table} {sql}",
+            f"SELECT * FROM {table} WHERE {where}",
             values,
             camel_case=camel_case,
             multiple=False,
+        )
+
+    def get_by_rowid(self, table, rowid, **kwargs):
+        return self.get(
+            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
     def get_or_create(self, table, data, *, camel_case=False):
@@ -67,46 +69,52 @@ class Database:
                 "The `data` parameter to `get_or_create` cannot be empty."
             )
 
-        query = functools.reduce(
-            q.And, (q.Equals(key, value) for key, value in data.items())
-        )
-        row = self.get(table, query)
+        query = " AND ".join(f"{key} = :{key}" for key in data)
+        row = self.get(table, where=query, values=data)
         if row is None:
             pk = self.create(table, data)
-            return self.get(table, pk, camel_case=camel_case)
+            return self.get_by_rowid(table, pk, camel_case=camel_case)
         else:
             return row
 
     def list(
         self,
         table,
-        query=None,
         *,
+        where="1",
+        values={},
         camel_case=False,
         limit=None,
         order_by=None,
         descending=None,
     ):
         # TODO(2021-04-30): Use `limit` parameter.
-        sql, values = q.to_sql(query)
         if order_by is not None:
             if isinstance(order_by, (tuple, list)):
                 order_by = ", ".join(order_by)
 
             direction = "DESC" if descending is True else "ASC"
-            sql = f"{sql} ORDER BY {order_by} {direction}"
+            order_clause = f"ORDER BY {order_by} {direction}"
         else:
             if descending is not None:
                 raise ISQLiteError(
                     "The `descending` parameter to `list` requires the `order_by` "
                     + "parameter to be set."
                 )
-        return self.sql(f"SELECT * FROM {table} {sql}", values, camel_case=camel_case)
+            order_clause = ""
 
-    def count(self, table, query=None):
-        sql, values = q.to_sql(query)
+        return self.sql(
+            f"SELECT * FROM {table} WHERE {where} {order_clause}",
+            values,
+            camel_case=camel_case,
+        )
+
+    def count(self, table, *, where="1", values={}):
         result = self.sql(
-            f"SELECT COUNT(*) FROM {table} {sql}", values, as_tuple=True, multiple=False
+            f"SELECT COUNT(*) FROM {table} WHERE {where}",
+            values,
+            as_tuple=True,
+            multiple=False,
         )
         return result[0]
 
@@ -163,9 +171,7 @@ class Database:
             [tuple(d.values()) for d in data],
         )
 
-    def update(self, table, query, data):
-        sql, values = q.to_sql(query, convert_id=True)
-
+    def update(self, table, data, *, where=None, values={}):
         updates = []
         for key, value in data.items():
             if key == "last_updated_at":
@@ -178,11 +184,17 @@ class Database:
         updates.append(f"last_updated_at = {CURRENT_TIMESTAMP}")
         updates = ", ".join(updates)
 
-        self.cursor.execute(f"UPDATE {table} SET {updates} {sql}", values)
+        where_clause = f"WHERE {where}" if where else ""
+        self.cursor.execute(f"UPDATE {table} SET {updates} {where_clause}", values)
 
-    def delete(self, table, query):
-        sql, values = q.to_sql(query, convert_id=True)
-        self.sql(f"DELETE FROM {table} {sql}", values)
+    def update_by_rowid(self, table, rowid, data):
+        return self.update(table, data, where="rowid = :rowid", values={"rowid": rowid})
+
+    def delete(self, table, *, where, values={}):
+        self.sql(f"DELETE FROM {table} WHERE {where}", values=values)
+
+    def delete_by_rowid(self, table, rowid):
+        return self.delete(table, where="rowid = :rowid", values={"rowid": rowid})
 
     def sql(self, query, values={}, *, as_tuple=False, camel_case=False, multiple=True):
         if multiple:

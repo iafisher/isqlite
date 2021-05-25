@@ -5,7 +5,6 @@ import unittest
 
 from isqlite import Database, Table
 from isqlite import columns as isqlite_columns
-from isqlite import query as q
 from isqlite._core import get_table_from_create_statement, string_to_camel_case
 
 
@@ -138,18 +137,23 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.db.count("professors"), 2)
         self.assertEqual(self.db.count("courses"), 2)
         self.assertEqual(self.db.count("students"), 2)
-        self.assertEqual(self.db.count("students", q.Equals("first_name", "Helga")), 1)
         self.assertEqual(
             self.db.count(
-                "students",
-                q.LessThan("graduation_year", 2020)
-                | q.Equals("first_name", "Kingsley"),
+                "students", where="first_name = :name", values={"name": "Helga"}
+            ),
+            1,
+        )
+        self.assertEqual(
+            self.db.count(
+                "students", where="graduation_year < 2020 OR first_name = 'Kingsley'",
             ),
             0,
         )
 
     def test_get(self):
-        professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
+        professor = self.db.get(
+            "professors", where="last_name = :last_name", values={"last_name": "Knuth"}
+        )
         self.assertEqual(professor["first_name"], "Donald")
         # Make sure the keys are listed in the correct order.
         self.assertEqual(
@@ -166,15 +170,15 @@ class DatabaseTests(unittest.TestCase):
             ],
         )
 
-        department = self.db.get("departments", professor["department"])
+        department = self.db.get_by_rowid("departments", professor["department"])
         self.assertEqual(department["name"], "Computer Science")
 
-        non_existent = self.db.get("professors", q.Equals("first_name", "Bob"))
+        non_existent = self.db.get("professors", where="first_name = 'Bob'")
         self.assertIsNone(non_existent)
 
     def test_get_with_camel_case(self):
         professor = self.db.get(
-            "professors", q.Equals("last_name", "Knuth"), camel_case=True
+            "professors", where="last_name = 'Knuth'", camel_case=True
         )
         self.assertEqual(
             list(professor.keys()),
@@ -191,32 +195,28 @@ class DatabaseTests(unittest.TestCase):
         )
 
     def test_update_with_pk(self):
-        professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
+        professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])
-        self.db.update("professors", professor["id"], {"retired": True})
-        professor = self.db.get("professors", professor["id"])
+        self.db.update_by_rowid("professors", professor["id"], {"retired": True})
+        professor = self.db.get_by_rowid("professors", professor["id"])
         self.assertTrue(professor["retired"])
 
     def test_update_with_query(self):
-        self.assertEqual(
-            self.db.count("students", q.GreaterThan("graduation_year", 2025)), 0
-        )
+        self.assertEqual(self.db.count("students", where="graduation_year > 2025"), 0)
         self.db.update(
-            "students", q.LessThan("graduation_year", 2025), {"graduation_year": 2026}
+            "students", {"graduation_year": 2026}, where="graduation_year < 2025",
         )
-        self.assertEqual(
-            self.db.count("students", q.GreaterThan("graduation_year", 2025)), 2
-        )
+        self.assertEqual(self.db.count("students", where="graduation_year > 2025"), 2)
 
     def test_update_with_full_object(self):
-        professor = self.db.get("professors", q.Equals("last_name", "Knuth"))
+        professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])
 
         professor["retired"] = True
         time.sleep(0.1)
-        self.db.update("professors", professor["id"], professor)
+        self.db.update_by_rowid("professors", professor["id"], professor)
 
-        updated_professor = self.db.get("professors", professor["id"])
+        updated_professor = self.db.get_by_rowid("professors", professor["id"])
         self.assertTrue(updated_professor["retired"])
         self.assertEqual(professor["id"], updated_professor["id"])
         self.assertEqual(professor["created_at"], updated_professor["created_at"])
@@ -225,8 +225,8 @@ class DatabaseTests(unittest.TestCase):
         )
 
     def test_delete(self):
-        self.db.delete("students", q.GreaterThan("graduation_year", 2022))
-        student = self.db.get("students", q.GreaterThan("graduation_year", 2022))
+        self.db.delete("students", where="graduation_year > 2022")
+        student = self.db.get("students", where="graduation_year > 2022")
         self.assertIsNone(student)
 
     def test_list(self):
@@ -243,8 +243,7 @@ class DatabaseTests(unittest.TestCase):
             )
 
         students = self.db.list(
-            "students",
-            q.Equals("graduation_year", 2025) & q.Equals("first_name", "Jane"),
+            "students", where="graduation_year = 2025 AND first_name = 'Jane'"
         )
         self.assertEqual(len(students), 100)
         self.assertEqual(students[0]["first_name"], "Jane")
