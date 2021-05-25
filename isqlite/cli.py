@@ -3,6 +3,7 @@ import re
 import sys
 
 import click
+import sqliteparser
 from xcli import Table, colors, input2
 
 from . import Database
@@ -33,16 +34,22 @@ def main_create(path_to_database, table):
 
         schema = parse_create_table_statement(schema_row["sql"])
 
+        print("To set a value to be null, enter NULL (case-sensitive).")
+        print("To set a value to the empty string, enter a blank line.")
+        print()
+
         payload = {}
         for name, definition in schema.items():
-            if name in {"id", "created_at", "last_updated_at"}:
+            if any(
+                isinstance(c, sqliteparser.ast.PrimaryKeyConstraint)
+                for c in definition.constraints
+            ):
                 continue
 
-            column_type = definition.split(maxsplit=1)[0]
-            print(colors.blue(name), definition)
-            v = input2("? ", verify=lambda v: validate_column(column_type, v))
+            print(definition)
+            v = input2("? ", verify=lambda v: validate_column(definition.type, v))
 
-            if not v and column_type != "TEXT":
+            if v == "NULL":
                 v = None
 
             payload[name] = v
@@ -230,20 +237,21 @@ def main_update(path_to_database, table, pk):
 
         updates = {}
         for key, value in original.items():
-            if key in {"id", "created_at", "last_updated_at"}:
+            definition = schema[key]
+            if any(
+                isinstance(c, sqliteparser.ast.PrimaryKeyConstraint)
+                for c in definition.constraints
+            ):
                 continue
 
-            definition = schema[key]
-            column_type = definition.split(maxsplit=1)[0]
-            print(colors.blue(key), definition)
+            print(definition)
             print("Currently:", value)
-            v = input2("? ", verify=lambda v: validate_column(column_type, v))
+            v = input2("? ", verify=lambda v: validate_column(definition.type, v))
 
-            if v:
-                if v == "NULL":
-                    updates[key] = None
-                else:
-                    updates[key] = v
+            if v == "NULL":
+                v = None
+
+            updates[key] = v
 
         if not updates:
             print()
@@ -271,22 +279,11 @@ def prettyprint_row(row):
 
 
 def parse_create_table_statement(statement):
-    statement = statement.strip()
-    open_index = statement.find("(")
-    close_index = statement.rfind(")")
-    if open_index == -1 or close_index == -1:
-        raise SyntaxError
+    if not statement.endswith(";"):
+        statement = statement + ";"
 
-    # This crude method will fail in some cases, e.g. if a column definition contains a
-    # string literal expression (e.g., in a DEFAULT clause) that contains a comma.
-    columns = statement[open_index + 1 : close_index].split(",")
-
-    r = collections.OrderedDict()
-    for column in columns:
-        words = column.split(maxsplit=1)
-        r[words[0].strip()] = words[1].strip()
-
-    return r
+    tree = sqliteparser.parse(statement)[0]
+    return collections.OrderedDict((c.name, c) for c in tree.columns)
 
 
 timestamp_pattern = re.compile(

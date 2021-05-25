@@ -18,7 +18,7 @@ setup(
     author_email="iafisher@fastmail.com",
     entry_points={"console_scripts": ["isqlite = isqlite.cli:cli"]},
     packages=find_packages(exclude=["tests"]),
-    install_requires=["sqliteparser >= 0.2.1"],
+    install_requires=["click >= 8.0.0", "sqliteparser >= 0.2.2", "xcli >= 0.2"],
     project_urls={"Source": "https://github.com/iafisher/isqlite"},
     classifiers=[
         "Programming Language :: Python :: 3",
