@@ -6,7 +6,6 @@ import click
 from xcli import Table, colors, input2
 
 from . import Database
-from . import query as q
 
 
 @click.group()
@@ -62,7 +61,7 @@ def main_delete(path_to_database, table, pk):
     """
     with Database(path_to_database) as db:
         try:
-            row = db.get(table, pk)
+            row = db.get_by_rowid(table, pk)
         except Exception:
             # This can happen, e.g., if a timestamp column is invalidly formatted and
             # the Python wrapper around sqlite3 chokes trying to convert it to a
@@ -83,7 +82,7 @@ def main_delete(path_to_database, table, pk):
             print("Operation aborted.")
             sys.exit(1)
 
-        db.delete(table, pk)
+        db.delete_by_rowid(table, pk)
         print()
         print(f"Row {pk} deleted.")
 
@@ -119,7 +118,7 @@ def main_get(path_to_database, table, pk):
     Fetch a single row.
     """
     with Database(path_to_database, readonly=True) as db:
-        row = db.get(table, pk)
+        row = db.get_by_rowid(table, pk)
         if row is None:
             print(f"Row {pk} not found in table {table!r}.")
         else:
@@ -129,24 +128,17 @@ def main_get(path_to_database, table, pk):
 @cli.command(name="list")
 @click.argument("path_to_database")
 @click.argument("table")
-@click.argument("constraint", default="")
-def main_list(path_to_database, table, constraint=""):
+@click.argument("--where", default="1")
+def main_list(path_to_database, table, *, where):
     """
     List the rows in the table, optionally filtered by a SQL clause.
     """
     with Database(path_to_database, readonly=True) as db:
-        if constraint:
-            constraint = q.Sql(constraint)
-        else:
-            constraint = None
-
-        rows = db.list(table, constraint)
+        rows = db.list(table, where=where)
 
         if not rows:
-            if constraint:
-                print(
-                    f"No rows found in table {table!r} with constraint {constraint!r}."
-                )
+            if where:
+                print(f"No rows found in table {table!r} with constraint {where!r}.")
             else:
                 print(f"No row founds in table {table!r}.")
         else:
@@ -228,7 +220,7 @@ def main_update(path_to_database, table, pk):
 
         schema = parse_create_table_statement(schema_row["sql"])
 
-        original = db.get(table, pk)
+        original = db.get_by_rowid(table, pk)
         if original is None:
             print(f"Row {pk} not found in table {table!r}.")
 
@@ -258,7 +250,7 @@ def main_update(path_to_database, table, pk):
             print("No updates specified.")
             sys.exit(1)
 
-        db.update(table, pk, updates)
+        db.update_by_rowid(table, pk, updates)
         print()
         print(f"Row {pk} updated.")
 
