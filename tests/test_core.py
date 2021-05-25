@@ -3,7 +3,7 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import Database, Table
+from isqlite import Database
 from isqlite import columns as isqlite_columns
 from isqlite._core import get_table_from_create_statement, string_to_camel_case
 
@@ -271,7 +271,7 @@ class DatabaseTests(unittest.TestCase):
         db = Database(":memory:", readonly=True)
         with self.assertRaises(sqlite3.OperationalError):
             db.create_table(
-                Table("people", [isqlite_columns.Text("name", required=True)])
+                "people", "name TEXT NOT NULL",
             )
 
     # TODO: Test create statement with explicit created_at column.
