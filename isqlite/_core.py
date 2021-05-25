@@ -2,9 +2,8 @@ import collections
 import re
 import sqlite3
 
-import sqlparse
+import sqliteparser
 
-from . import columns as isqlite_columns
 from ._exception import ISQLiteError
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
@@ -246,46 +245,72 @@ class Database:
     def drop_column(self, table_name, column_name):
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
         # implement it by hand here.
-        table = self._get_table(table_name)
-        table.columns.pop(column_name)
-        select = ", ".join(table.columns.keys())
-        self._migrate_table(table, select=select)
+        create_table_statement = self._get_create_table_statement(table_name)
+        new_columns = [
+            column
+            for column in create_table_statement.columns
+            if column.name != column_name
+        ]
+        if len(new_columns) == len(create_table_statement.columns):
+            # TODO(2021-05-25): Test this.
+            raise ISQLiteError(f"{column_name} is not a column of {table_name}.")
+
+        create_table_statement.columns = new_columns
+        select = ", ".join(c.name for c in create_table_statement.columns)
+        self._migrate_table(create_table_statement, select=select)
 
     def reorder_columns(self, table_name, column_names):
-        table = self._get_table(table_name)
-        if set(column_names) != set(table.columns.keys()):
+        create_table_statement = self._get_create_table_statement(table_name)
+        column_map = collections.OrderedDict(
+            (c.name, c) for c in create_table_statement.columns
+        )
+        if set(column_names) != set(column_map.keys()):
             raise ISQLiteError(
                 "The set of reordered columns is not the same as the set of original "
-                + "columns. Note that you must include the `id`, `created_at`, and "
-                + "`last_updated_at` columns in the list if your table includes them."
+                + "columns."
             )
-        table.columns = collections.OrderedDict(
-            (name, table.columns[name]) for name in column_names
-        )
-        self._migrate_table(table, select=", ".join(column_names))
+        create_table_statement.columns = [column_map[name] for name in column_names]
+        self._migrate_table(create_table_statement, select=", ".join(column_names))
 
     def alter_column(self, table_name, column_name, new_column):
-        table = self._get_table(table_name)
-        table.columns[column_name] = f"{column_name} {new_column}"
-        self._migrate_table(table, select=", ".join(table.columns.keys()))
+        create_table_statement = self._get_create_table_statement(table_name)
+        altered = False
+        for i, column in enumerate(create_table_statement.columns):
+            if column.name == column_name:
+                # TODO(2021-05-25): Clean up this hacky logic. A better way would be to
+                # call sqliteparser to parse `new_column` into a real `ast.Column`
+                # object. But currently sqliteparser does not have a public API method
+                # to do so.
+                create_table_statement.columns[i] = sqliteparser.ast.Column(
+                    column_name, constraints=[new_column]
+                )
+                altered = True
+                break
+
+        if not altered:
+            # TODO(2021-05-25): Test this.
+            raise ISQLiteError(f"{column_name} is not a column of {table_name}.")
+
+        self._migrate_table(
+            create_table_statement,
+            select=", ".join(c.name for c in create_table_statement.columns),
+        )
 
     def rename_column(self, table_name, old_column_name, new_column_name):
         # ALTER TABLE ... RENAME COLUMN is only supported since SQLite version 3.25, so
         # we implement it by hand here.
         raise NotImplementedError
 
-    def _migrate_table(self, new_table, *, select):
-        name = new_table.name
+    def _migrate_table(self, new_create_table_statement, *, select):
+        name = new_create_table_statement.name
         # This procedure is copied from https://sqlite.org/lang_altertable.html
         try:
             self.sql("PRAGMA foreign_keys = 0")
 
             # Create the new table under a temporary name.
             tmp_table_name = f"isqlite_tmp_{name}"
-            new_table.name = tmp_table_name
-            self.create_table(
-                tmp_table_name, *[str(c) for c in new_table.columns.values()]
-            )
+            new_create_table_statement.name = tmp_table_name
+            self.sql(str(new_create_table_statement))
 
             # Copy over all data from the old table into the new table using the
             # provided SELECT values.
@@ -307,145 +332,24 @@ class Database:
         finally:
             self.sql("PRAGMA foreign_keys = 1")
 
-    def _get_table(self, table_name):
+    def _get_create_table_statement(self, table_name):
         sql = self.sql(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = :table",
             {"table": table_name},
             as_tuple=True,
             multiple=False,
         )[0]
-        return get_table_from_create_statement(table_name, sql)
+
+        if not sql.endswith(";"):
+            sql = sql + ";"
+
+        return sqliteparser.parse(sql)[0]
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
-
-
-class Table:
-    def __init__(self, name, columns, constraints=[], *, without_rowid=False):
-        self.name = name
-        self.without_rowid = without_rowid
-        self.columns = collections.OrderedDict()
-
-        for column in columns:
-            if column.name in self.columns:
-                raise ISQLiteError(
-                    f"Column {column.name!r} was defined multiple times."
-                )
-
-            self.columns[column.name] = column.as_raw_column()
-
-        self.constraints = constraints
-
-    def get_create_table_statement(self):
-        builder = ["CREATE TABLE IF NOT EXISTS ", self.name, "(\n"]
-
-        L = list(self.columns.values()) + self.constraints
-        for i, column in enumerate(L):
-            builder.append("  ")
-            builder.append(str(column))
-            if i != len(L) - 1:
-                builder.append(",")
-            builder.append("\n")
-
-        builder.append(")")
-        if self.without_rowid:
-            builder.append("WITHOUT ROWID")
-        builder.append(";")
-
-        return "".join(builder)
-
-
-def get_table_from_create_statement(name, sql):
-    tokens = [
-        t.value
-        for t in sqlparse.parse(sql)[0].flatten()
-        if t.ttype
-        not in (
-            sqlparse.tokens.Whitespace,
-            sqlparse.tokens.Newline,
-            sqlparse.tokens.Comment.Single,
-            sqlparse.tokens.Comment.Multiline,
-        )
-    ]
-    tokens.reverse()
-
-    while tokens and tokens[-1] != "(":
-        tokens.pop()
-
-    tokens.pop()
-
-    # CREATE TABLE syntax defined here: https://sqlite.org/syntax/create-table-stmt.html
-    columns = []
-    constraints = []
-    while True:
-        column_or_constraint, finished = match_column(tokens)
-
-        if isinstance(column_or_constraint, isqlite_columns.RawColumn):
-            columns.append(column_or_constraint)
-        elif isinstance(column_or_constraint, isqlite_columns.RawConstraint):
-            constraints.append(column_or_constraint)
-        else:
-            raise SyntaxError(type(column_or_constraint))
-
-        if finished:
-            break
-
-    if (
-        len(tokens) >= 2
-        and tokens[-1].upper() == "WITHOUT"
-        and tokens[-2].upper() == "ROWID"
-    ):
-        without_rowid = True
-    else:
-        without_rowid = False
-
-    return Table(name, columns, constraints, without_rowid=without_rowid)
-
-
-def match_column(tokens):
-    name = tokens.pop()
-    tokens_to_keep = []
-    depth = 0
-    finished = False
-    while tokens:
-        t = tokens.pop()
-        if depth == 0 and t == ",":
-            break
-
-        if t == ")":
-            if depth > 0:
-                depth -= 1
-            else:
-                finished = True
-                break
-
-        if t == "(":
-            depth += 1
-
-        tokens_to_keep.append(t)
-
-    # Possible keywords defined here: https://sqlite.org/syntax/table-constraint.html
-    if name.upper() in ("CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN"):
-        return (
-            isqlite_columns.RawConstraint(name + " " + " ".join(tokens_to_keep)),
-            finished,
-        )
-    else:
-        # Handle quoted identifiers.
-        #
-        # Based on https://sqlite.org/lang_keywords.html
-        if (
-            (name.startswith('"') and name.endswith('"'))
-            or (name.startswith("[") and name.endswith("]"))
-            or (name.startswith("`") and name.endswith("`"))
-            or (name.startswith("'") and name.endswith("'"))
-        ):
-            name = name[1:-1]
-
-        return isqlite_columns.RawColumn(name, " ".join(tokens_to_keep)), finished
 
 
 def ordered_dict_row_factory(cursor, row):

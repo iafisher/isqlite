@@ -2,7 +2,7 @@ import datetime
 import decimal
 import sqlite3
 
-from ._core import Database, Table
+from ._core import Database
 from ._exception import ISQLiteError
 
 
