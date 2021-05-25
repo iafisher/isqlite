@@ -118,17 +118,17 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data):
+    def create(self, table, data, *, auto_created_at=None, auto_last_updated_at=None):
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
 
         extra = []
-        if "created_at" not in data:
-            keys.append("created_at")
+        if auto_created_at and auto_created_at not in data:
+            keys.append(auto_created_at)
             extra.append(CURRENT_TIMESTAMP)
-        if "last_updated_at" not in data:
-            keys.append("last_updated_at")
+        if auto_last_updated_at and auto_last_updated_at not in data:
+            keys.append(auto_last_updated_at)
             extra.append(CURRENT_TIMESTAMP)
 
         if extra:
@@ -144,7 +144,9 @@ class Database:
         )
         return self.cursor.lastrowid
 
-    def create_many(self, table, data):
+    def create_many(
+        self, table, data, *, auto_created_at=None, auto_last_updated_at=None
+    ):
         if not data:
             return
 
@@ -152,11 +154,11 @@ class Database:
         placeholders = ",".join("?" for _ in range(len(keys)))
 
         extra = []
-        if "created_at" not in data[0]:
-            keys.append("created_at")
+        if auto_created_at and auto_created_at not in data[0]:
+            keys.append(auto_created_at)
             extra.append(CURRENT_TIMESTAMP)
-        if "last_updated_at" not in data[0]:
-            keys.append("last_updated_at")
+        if auto_last_updated_at and auto_last_updated_at not in data[0]:
+            keys.append(auto_last_updated_at)
             extra.append(CURRENT_TIMESTAMP)
 
         if extra:
@@ -171,7 +173,7 @@ class Database:
             [tuple(d.values()) for d in data],
         )
 
-    def update(self, table, data, *, where=None, values={}):
+    def update(self, table, data, *, where=None, values={}, auto_last_updated_at=None):
         updates = []
         for key, value in data.items():
             if key == "last_updated_at":
@@ -181,9 +183,10 @@ class Database:
             values[placeholder] = value
             updates.append(f"{key} = :{placeholder}")
 
-        updates.append(f"last_updated_at = {CURRENT_TIMESTAMP}")
-        updates = ", ".join(updates)
+        if auto_last_updated_at:
+            updates.append(f"{auto_last_updated_at} = {CURRENT_TIMESTAMP}")
 
+        updates = ", ".join(updates)
         where_clause = f"WHERE {where}" if where else ""
         self.cursor.execute(f"UPDATE {table} SET {updates} {where_clause}", values)
 
@@ -231,8 +234,8 @@ class Database:
         self.connection.commit()
         self.connection.close()
 
-    def create_table(self, table):
-        self.sql(table.get_create_table_statement())
+    def create_table(self, table_name, *columns, values={}):
+        self.sql(f"CREATE TABLE {table_name}({','.join(columns)})", values)
 
     def drop_table(self, table_name):
         self.sql(f"DROP TABLE {table_name}")
@@ -280,7 +283,9 @@ class Database:
             # Create the new table under a temporary name.
             tmp_table_name = f"isqlite_tmp_{name}"
             new_table.name = tmp_table_name
-            self.create_table(new_table)
+            self.create_table(
+                tmp_table_name, *[str(c) for c in new_table.columns.values()]
+            )
 
             # Copy over all data from the old table into the new table using the
             # provided SELECT values.
@@ -294,8 +299,9 @@ class Database:
 
             # Check that no foreign key constraints have been violated.
             self.sql("PRAGMA foreign_key_check")
-        except Exception:
+        except Exception as e:
             self.rollback()
+            raise e
         else:
             self.commit()
         finally:

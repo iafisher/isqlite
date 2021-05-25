@@ -12,58 +12,40 @@ class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.db = Database(":memory:")
         self.db.create_table(
-            Table(
-                "departments",
-                [
-                    isqlite_columns.Text("name", required=True),
-                    isqlite_columns.Text("abbreviation", required=True),
-                ],
-            )
+            "departments",
+            "id INTEGER PRIMARY KEY NOT NULL",
+            "name TEXT NOT NULL",
+            "abbreviation TEXT NOT NULL",
         )
 
         self.db.create_table(
-            Table(
-                "professors",
-                [
-                    isqlite_columns.Text("first_name", required=True),
-                    isqlite_columns.Text("last_name", required=True),
-                    isqlite_columns.ForeignKey(
-                        "department", "departments", required=True
-                    ),
-                    isqlite_columns.Boolean("tenured", required=True),
-                    isqlite_columns.Boolean("retired", required=True),
-                ],
-            )
+            "professors",
+            "id INTEGER PRIMARY KEY NOT NULL",
+            "first_name TEXT NOT NULL",
+            "last_name TEXT NOT NULL",
+            "department INTEGER NOT NULL REFERENCES departments",
+            "tenured BOOLEAN NOT NULL",
+            "retired BOOLEAN NOT NULL",
         )
 
         self.db.create_table(
-            Table(
-                "courses",
-                [
-                    isqlite_columns.Integer("course_number", required=True),
-                    isqlite_columns.ForeignKey(
-                        "department", "departments", required=True
-                    ),
-                    isqlite_columns.ForeignKey(
-                        "instructor", "professors", required=True
-                    ),
-                    isqlite_columns.Text("title", required=True),
-                    isqlite_columns.Decimal("credits", required=True),
-                ],
-            )
+            "courses",
+            "id INTEGER PRIMARY KEY NOT NULL",
+            "course_number INTEGER NOT NULL",
+            "department INTEGER NOT NULL REFERENCES departments",
+            "instructor INTEGER NOT NULL REFERENCES professors",
+            "title TEXT NOT NULL",
+            "credits DECIMAL NOT NULL",
         )
 
         self.db.create_table(
-            Table(
-                "students",
-                [
-                    isqlite_columns.Integer("student_id", required=True),
-                    isqlite_columns.Text("first_name", required=True),
-                    isqlite_columns.Text("last_name", required=True),
-                    isqlite_columns.ForeignKey("major", "departments", required=False),
-                    isqlite_columns.Integer("graduation_year", required=True),
-                ],
-            )
+            "students",
+            "id INTEGER PRIMARY KEY NOT NULL",
+            "student_id INTEGER NOT NULL",
+            "first_name TEXT NOT NULL",
+            "last_name TEXT NOT NULL",
+            "major INTEGER REFERENCES departments",
+            "graduation_year INTEGER NOT NULL",
         )
 
         cs_department = self.db.create(
@@ -158,16 +140,7 @@ class DatabaseTests(unittest.TestCase):
         # Make sure the keys are listed in the correct order.
         self.assertEqual(
             list(professor.keys()),
-            [
-                "id",
-                "first_name",
-                "last_name",
-                "department",
-                "tenured",
-                "retired",
-                "created_at",
-                "last_updated_at",
-            ],
+            ["id", "first_name", "last_name", "department", "tenured", "retired"],
         )
 
         department = self.db.get_by_rowid("departments", professor["department"])
@@ -182,16 +155,7 @@ class DatabaseTests(unittest.TestCase):
         )
         self.assertEqual(
             list(professor.keys()),
-            [
-                "id",
-                "firstName",
-                "lastName",
-                "department",
-                "tenured",
-                "retired",
-                "createdAt",
-                "lastUpdatedAt",
-            ],
+            ["id", "firstName", "lastName", "department", "tenured", "retired"],
         )
 
     def test_update_with_pk(self):
@@ -219,10 +183,6 @@ class DatabaseTests(unittest.TestCase):
         updated_professor = self.db.get_by_rowid("professors", professor["id"])
         self.assertTrue(updated_professor["retired"])
         self.assertEqual(professor["id"], updated_professor["id"])
-        self.assertEqual(professor["created_at"], updated_professor["created_at"])
-        self.assertLess(
-            professor["last_updated_at"], updated_professor["last_updated_at"]
-        )
 
     def test_delete(self):
         self.db.delete("students", where="graduation_year > 2022")
@@ -261,8 +221,6 @@ class DatabaseTests(unittest.TestCase):
                 "department",
                 "tenured",
                 "retired",
-                "created_at",
-                "last_updated_at",
                 "year_of_hire",
             ],
         )
@@ -274,15 +232,7 @@ class DatabaseTests(unittest.TestCase):
         professor = self.db.get("professors")
         self.assertEqual(
             list(professor.keys()),
-            [
-                "id",
-                "first_name",
-                "last_name",
-                "department",
-                "tenured",
-                "created_at",
-                "last_updated_at",
-            ],
+            ["id", "first_name", "last_name", "department", "tenured"],
         )
         self.assertEqual(self.db.sql("PRAGMA foreign_keys", as_tuple=True)[0][0], 1)
 
@@ -310,7 +260,7 @@ class DatabaseTests(unittest.TestCase):
         # compare equal after the reordering operation.
         before = [dict(row) for row in self.db.list("departments", order_by="name")]
 
-        reordered = ["id", "abbreviation", "name", "created_at", "last_updated_at"]
+        reordered = ["id", "abbreviation", "name"]
         self.db.reorder_columns("departments", reordered)
 
         self.assertEqual(list(self.db.get("departments").keys()), reordered)
