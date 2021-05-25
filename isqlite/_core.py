@@ -225,9 +225,8 @@ class Database:
     def drop_table(self, table_name):
         self.sql(f"DROP TABLE {table_name}")
 
-    def add_column(self, table_name, column):
-        column = column.as_raw_column()
-        self.sql(f"ALTER TABLE {table_name} ADD COLUMN {column}")
+    def add_column(self, table_name, column_name, column_def):
+        self.sql(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def}")
 
     def drop_column(self, table_name, column_name):
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
@@ -252,7 +251,7 @@ class Database:
 
     def alter_column(self, table_name, column_name, new_column):
         table = self._get_table(table_name)
-        table.columns[column_name] = new_column.as_raw_column()
+        table.columns[column_name] = f"{column_name} {new_column}"
         self._migrate_table(table, select=", ".join(table.columns.keys()))
 
     def rename_column(self, table_name, old_column_name, new_column_name):

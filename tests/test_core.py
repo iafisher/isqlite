@@ -250,9 +250,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(students[0]["first_name"], "Jane")
 
     def test_add_column(self):
-        self.db.add_column(
-            "professors", isqlite_columns.Integer("year_of_hire", required=False)
-        )
+        self.db.add_column("professors", "year_of_hire", "INTEGER")
 
         professor = self.db.get("professors")
         self.assertEqual(
@@ -292,9 +290,7 @@ class DatabaseTests(unittest.TestCase):
     def test_alter_column(self):
         professor_before = self.db.get("professors")
 
-        self.db.alter_column(
-            "professors", "tenured", isqlite_columns.Integer("tenured", required=True)
-        )
+        self.db.alter_column("professors", "tenured", "INTEGER NOT NULL")
 
         professor_after = self.db.get("professors")
         # This assertion is a little tricky, because True == 1 and isinstance(True, int)
