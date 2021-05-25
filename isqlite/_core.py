@@ -117,17 +117,14 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_created_at=None, auto_last_updated_at=None):
+    def create(self, table, data, *, auto_timestamp=[]):
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
 
         extra = []
-        if auto_created_at and auto_created_at not in data:
-            keys.append(auto_created_at)
-            extra.append(CURRENT_TIMESTAMP)
-        if auto_last_updated_at and auto_last_updated_at not in data:
-            keys.append(auto_last_updated_at)
+        for timestamp_column in auto_timestamp:
+            keys.append(timestamp_column)
             extra.append(CURRENT_TIMESTAMP)
 
         if extra:
@@ -143,9 +140,7 @@ class Database:
         )
         return self.cursor.lastrowid
 
-    def create_many(
-        self, table, data, *, auto_created_at=None, auto_last_updated_at=None
-    ):
+    def create_many(self, table, data, *, auto_timestamp=[]):
         if not data:
             return
 
@@ -153,11 +148,8 @@ class Database:
         placeholders = ",".join("?" for _ in range(len(keys)))
 
         extra = []
-        if auto_created_at and auto_created_at not in data[0]:
-            keys.append(auto_created_at)
-            extra.append(CURRENT_TIMESTAMP)
-        if auto_last_updated_at and auto_last_updated_at not in data[0]:
-            keys.append(auto_last_updated_at)
+        for timestamp_column in auto_timestamp:
+            keys.append(timestamp_column)
             extra.append(CURRENT_TIMESTAMP)
 
         if extra:
@@ -172,7 +164,7 @@ class Database:
             [tuple(d.values()) for d in data],
         )
 
-    def update(self, table, data, *, where=None, values={}, auto_last_updated_at=None):
+    def update(self, table, data, *, where=None, values={}, auto_timestamp=[]):
         updates = []
         for key, value in data.items():
             if key == "last_updated_at":
@@ -182,8 +174,8 @@ class Database:
             values[placeholder] = value
             updates.append(f"{key} = :{placeholder}")
 
-        if auto_last_updated_at:
-            updates.append(f"{auto_last_updated_at} = {CURRENT_TIMESTAMP}")
+        for timestamp_column in auto_timestamp:
+            updates.append(f"{timestamp_column} = {CURRENT_TIMESTAMP}")
 
         updates = ", ".join(updates)
         where_clause = f"WHERE {where}" if where else ""

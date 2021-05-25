@@ -17,7 +17,13 @@ def cli():
 @cli.command(name="create")
 @click.argument("path_to_database")
 @click.argument("table")
-def main_create(path_to_database, table):
+@click.argument(
+    "--auto-timestamp",
+    multiple=True,
+    default=[],
+    help="Automatically fill in zero or more columns with the current time.",
+)
+def main_create(path_to_database, table, *, auto_timestamp):
     """
     Create a new row interactively.
     """
@@ -46,6 +52,9 @@ def main_create(path_to_database, table):
             ):
                 continue
 
+            if name in auto_timestamp:
+                continue
+
             print(definition)
             v = input2("? ", verify=lambda v: validate_column(definition.type, v))
 
@@ -54,7 +63,7 @@ def main_create(path_to_database, table):
 
             payload[name] = v
 
-        pk = db.create(table, payload)
+        pk = db.create(table, payload, auto_timestamp=auto_timestamp,)
         print(f"Row {pk} created.")
 
 
@@ -210,7 +219,13 @@ def main_sql(path_to_database, query, *, write):
 @click.argument("path_to_database")
 @click.argument("table")
 @click.argument("pk", type=int)
-def main_update(path_to_database, table, pk):
+@click.argument(
+    "--auto-timestamp",
+    multiple=True,
+    default=[],
+    help="Automatically fill in zero or more columns with the current time.",
+)
+def main_update(path_to_database, table, pk, *, auto_timestamp):
     """
     Update an existing row interactively.
     """
@@ -244,6 +259,9 @@ def main_update(path_to_database, table, pk):
             ):
                 continue
 
+            if key in auto_timestamp:
+                continue
+
             print(definition)
             print("Currently:", value)
             v = input2("? ", verify=lambda v: validate_column(definition.type, v))
@@ -258,7 +276,7 @@ def main_update(path_to_database, table, pk):
             print("No updates specified.")
             sys.exit(1)
 
-        db.update_by_rowid(table, pk, updates)
+        db.update_by_rowid(table, pk, updates, auto_timestamp=auto_timestamp)
         print()
         print(f"Row {pk} updated.")
 
