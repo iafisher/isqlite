@@ -324,50 +324,18 @@ class Database:
 
 
 class Table:
-    def __init__(
-        self, name, columns, constraints=[], *, auto_columns=True, without_rowid=False
-    ):
-        if name.startswith("isqlite"):
-            raise ISQLiteError(
-                "Table names beginning with 'isqlite' are reserved for internal use by "
-                + "isqlite. Please choose a different name."
-            )
-
+    def __init__(self, name, columns, constraints=[], *, without_rowid=False):
         self.name = name
         self.without_rowid = without_rowid
         self.columns = collections.OrderedDict()
 
-        if auto_columns:
-            reserved = {"id", "created_at", "last_updated_at"}
-        else:
-            reserved = set()
-
-        if auto_columns:
-            self.columns["id"] = isqlite_columns.Integer(
-                "id", autoincrement=True, primary_key=True, required=True
-            ).as_raw_column()
-
         for column in columns:
-            if column.name in reserved:
-                raise ISQLiteError(
-                    f"The column name {column.name!r} is reserved for internal use by "
-                    + "isqlite. Please choose a different name."
-                )
-
             if column.name in self.columns:
                 raise ISQLiteError(
                     f"Column {column.name!r} was defined multiple times."
                 )
 
             self.columns[column.name] = column.as_raw_column()
-
-        if auto_columns:
-            self.columns["created_at"] = isqlite_columns.Timestamp(
-                "created_at", required=True
-            ).as_raw_column()
-            self.columns["last_updated_at"] = isqlite_columns.Timestamp(
-                "last_updated_at", required=True
-            ).as_raw_column()
 
         self.constraints = constraints
 
@@ -434,9 +402,7 @@ def get_table_from_create_statement(name, sql):
     else:
         without_rowid = False
 
-    return Table(
-        name, columns, constraints, auto_columns=False, without_rowid=without_rowid
-    )
+    return Table(name, columns, constraints, without_rowid=without_rowid)
 
 
 def match_column(tokens):
