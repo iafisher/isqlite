@@ -62,7 +62,7 @@ class Database:
             table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
-    def get_or_create(self, table, data, *, camel_case=False):
+    def get_or_create(self, table, data, *, camel_case=False, **kwargs):
         if not data:
             raise ISQLiteError(
                 "The `data` parameter to `get_or_create` cannot be empty."
@@ -71,7 +71,7 @@ class Database:
         query = " AND ".join(f"{key} = :{key}" for key in data)
         row = self.get(table, where=query, values=data)
         if row is None:
-            pk = self.create(table, data)
+            pk = self.create(table, data, **kwargs)
             return self.get_by_rowid(table, pk, camel_case=camel_case)
         else:
             return row
@@ -189,14 +189,18 @@ class Database:
         where_clause = f"WHERE {where}" if where else ""
         self.cursor.execute(f"UPDATE {table} SET {updates} {where_clause}", values)
 
-    def update_by_rowid(self, table, rowid, data):
-        return self.update(table, data, where="rowid = :rowid", values={"rowid": rowid})
+    def update_by_rowid(self, table, rowid, data, **kwargs):
+        return self.update(
+            table, data, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+        )
 
     def delete(self, table, *, where, values={}):
         self.sql(f"DELETE FROM {table} WHERE {where}", values=values)
 
-    def delete_by_rowid(self, table, rowid):
-        return self.delete(table, where="rowid = :rowid", values={"rowid": rowid})
+    def delete_by_rowid(self, table, rowid, **kwargs):
+        return self.delete(
+            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+        )
 
     def sql(self, query, values={}, *, as_tuple=False, camel_case=False, multiple=True):
         if multiple:
