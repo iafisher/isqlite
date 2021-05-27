@@ -222,6 +222,20 @@ def main_list(path_to_database, table, *, where):
             prettyprint_rows(rows)
 
 
+@cli.command(name="rename-column")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("old_name")
+@click.argument("new_name")
+def main_rename_column(path_to_database, table, old_name, new_name):
+    """
+    Rename a column.
+    """
+    with Database(path_to_database) as db:
+        db.rename_column(table, old_name, new_name)
+        print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
+
+
 @cli.command(name="schema")
 @click.argument("path_to_database")
 @click.argument("table", default="")
