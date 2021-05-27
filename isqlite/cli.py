@@ -17,7 +17,7 @@ def cli():
 @cli.command(name="create")
 @click.argument("path_to_database")
 @click.argument("table")
-@click.argument(
+@click.option(
     "--auto-timestamp",
     multiple=True,
     default=[],
@@ -65,6 +65,18 @@ def main_create(path_to_database, table, *, auto_timestamp):
 
         pk = db.create(table, payload, auto_timestamp=auto_timestamp,)
         print(f"Row {pk} created.")
+
+
+@cli.command(name="create-table")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("columns", nargs=-1)
+def main_create_table(path_to_database, table, columns):
+    """
+    Create a table.
+    """
+    with Database(path_to_database) as db:
+        db.create_table(table, *columns)
 
 
 @cli.command(name="delete")
@@ -219,7 +231,7 @@ def main_sql(path_to_database, query, *, write):
 @click.argument("path_to_database")
 @click.argument("table")
 @click.argument("pk", type=int)
-@click.argument(
+@click.option(
     "--auto-timestamp",
     multiple=True,
     default=[],
