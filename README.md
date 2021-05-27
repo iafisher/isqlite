@@ -3,40 +3,38 @@ isqlite is an improved Python interface to SQLite. It has a more convenient API,
 **WARNING:** isqlite is in beta. Not all features described here have been implemented yet. If you want to try it out, back up your data first.
 
 ```python
-from isqlite import Database, Table, columns
-from isqlite import query as q
+from isqlite import Database
 
-# Note that in addition to the columns declared explicitly, isqlite will automatically
-# create `id`, `created_at` and `last_updated_at` columns.
-teams_table = Table("teams", [
-  columns.Text("name", required=True),
-])
-employees_table = Table("employees", [
-  columns.Text("name", required=True),
-  columns.Integer("age", required=False),
-  columns.ForeignKey("team", "teams", required=False),
-])
-
-with Database("db.sqlite3") as db:
+with Database(":memory:") as db:
     # Create the tables defined in the database. This only needs to be done once.
-    db.create_table(teams_table)
-    db.create_table(employees_table)
+    db.create_table("teams", "id INTEGER NOT NULL PRIMARY KEY", "name TEXT NOT NULL")
+    db.create_table(
+        "employees",
+        "id INTEGER NOT NULL PRIMARY KEY",
+        "name TEXT NOT NULL",
+        "age INTEGER",
+        "team INTEGER REFERENCES teams",
+    )
 
     # Create a new row in the database.
     pk = db.create("employees", {"name": "John Doe", "age": 30})
 
     # Retrieve the row as an OrderedDict.
-    person = db.get("employees", pk)
+    person = db.get_by_rowid("employees", pk)
     print(person["name"], person["age"])
 
     # Update the row.
-    db.update("employees", pk, {"age": 35})
+    db.update_by_rowid("employees", pk, {"age": 35})
 
     # Delete the row.
-    db.delete("employees", pk)
+    db.delete_by_rowid("employees", pk)
 
     # Filter rows with a query.
-    employees = db.list("employees", q.Like("name", "John%") and q.GreaterThan("age", 40))
+    employees = db.list(
+        "employees",
+        where="name LIKE :name_pattern AND age > 40",
+        values={"name_pattern": "John%"},
+    )
 
     # Use raw SQL if necessary.
     pairs = db.sql(
