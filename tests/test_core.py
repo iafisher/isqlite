@@ -208,7 +208,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(students[0]["first_name"], "Jane")
 
     def test_add_column(self):
-        self.db.add_column("professors", "year_of_hire", "INTEGER")
+        self.db.add_column("professors", "year_of_hire INTEGER")
 
         professor = self.db.get("professors")
         self.assertEqual(

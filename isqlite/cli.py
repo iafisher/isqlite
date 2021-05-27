@@ -14,6 +14,19 @@ def cli():
     pass
 
 
+@cli.command(name="add-column")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("column")
+def main_add_column(path_to_database, table, column):
+    """
+    Add a column to a table.
+    """
+    with Database(path_to_database) as db:
+        db.add_column(table, column)
+        print(f"Column added to table {table!r}.")
+
+
 @cli.command(name="create")
 @click.argument("path_to_database")
 @click.argument("table")

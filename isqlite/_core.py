@@ -235,8 +235,8 @@ class Database:
     def drop_table(self, table_name):
         self.sql(f"DROP TABLE {table_name}")
 
-    def add_column(self, table_name, column_name, column_def):
-        self.sql(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def}")
+    def add_column(self, table_name, column_def):
+        self.sql(f"ALTER TABLE {table_name} ADD COLUMN {column_def}")
 
     def drop_column(self, table_name, column_name):
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
