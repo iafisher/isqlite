@@ -77,6 +77,7 @@ def main_create_table(path_to_database, table, columns):
     """
     with Database(path_to_database) as db:
         db.create_table(table, *columns)
+        print("Table {table!r} created.")
 
 
 @cli.command(name="delete")
@@ -137,6 +138,27 @@ def main_drop_column(path_to_database, table, column):
         print(f"Column {column!r} dropped from table {table!r}.")
 
 
+@cli.command(name="drop-table")
+@click.argument("path_to_database")
+@click.argument("table")
+def main_drop_table(path_to_database, table):
+    """
+    Drop a table from the database.
+    """
+    with Database(path_to_database) as db:
+        count = db.count(table)
+        print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+        print()
+        if not click.confirm("Are you sure you wish to drop this table?"):
+            print()
+            print("Operation aborted.")
+            sys.exit(1)
+
+        db.drop_table(table)
+        print()
+        print(f"Table {table!r} dropped from the database.")
+
+
 @cli.command(name="get")
 @click.argument("path_to_database")
 @click.argument("table")
@@ -188,7 +210,7 @@ def main_schema(path_to_database, table=""):
             )
 
             if not rows:
-                print("Table {table!r} not found.")
+                print(f"Table {table!r} not found.")
                 sys.exit(1)
 
             prettyprint_row(parse_create_table_statement(rows[0]["sql"]))
