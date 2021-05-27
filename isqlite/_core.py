@@ -3,6 +3,7 @@ import re
 import sqlite3
 
 import sqliteparser
+from sqliteparser import quote
 
 from ._exception import ISQLiteError
 
@@ -51,7 +52,7 @@ class Database:
 
     def get(self, table, *, where="1", values={}, camel_case=False):
         return self.sql(
-            f"SELECT * FROM {table} WHERE {where}",
+            f"SELECT * FROM {quote(table)} WHERE {where}",
             values,
             camel_case=camel_case,
             multiple=False,
@@ -93,7 +94,7 @@ class Database:
                 order_by = ", ".join(order_by)
 
             direction = "DESC" if descending is True else "ASC"
-            order_clause = f"ORDER BY {order_by} {direction}"
+            order_clause = f"ORDER BY {quote(order_by)} {direction}"
         else:
             if descending is not None:
                 raise ISQLiteError(
@@ -103,14 +104,14 @@ class Database:
             order_clause = ""
 
         return self.sql(
-            f"SELECT * FROM {table} WHERE {where} {order_clause}",
+            f"SELECT * FROM {quote(table)} WHERE {where} {order_clause}",
             values,
             camel_case=camel_case,
         )
 
     def count(self, table, *, where="1", values={}):
         result = self.sql(
-            f"SELECT COUNT(*) FROM {table} WHERE {where}",
+            f"SELECT COUNT(*) FROM {quote(table)} WHERE {where}",
             values,
             as_tuple=True,
             multiple=False,
@@ -134,7 +135,8 @@ class Database:
 
         self.cursor.execute(
             f"""
-            INSERT INTO {table}({', '.join(keys)}) VALUES ({placeholders}{extra});
+            INSERT INTO {quote(table)}({', '.join(map(quote, keys))})
+            VALUES ({placeholders}{extra});
             """,
             values,
         )
@@ -159,7 +161,8 @@ class Database:
 
         self.cursor.executemany(
             f"""
-            INSERT INTO {table}({', '.join(keys)}) VALUES ({placeholders}{extra});
+            INSERT INTO {quote(table)}({', '.join(map(quote, keys))})
+            VALUES ({placeholders}{extra});
             """,
             [tuple(d.values()) for d in data],
         )
@@ -167,19 +170,21 @@ class Database:
     def update(self, table, data, *, where=None, values={}, auto_timestamp=[]):
         updates = []
         for key, value in data.items():
-            if key == "last_updated_at":
+            if key in auto_timestamp:
                 continue
 
             placeholder = f"v{len(values)}"
             values[placeholder] = value
-            updates.append(f"{key} = :{placeholder}")
+            updates.append(f"{quote(key)} = :{placeholder}")
 
         for timestamp_column in auto_timestamp:
-            updates.append(f"{timestamp_column} = {CURRENT_TIMESTAMP}")
+            updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP}")
 
         updates = ", ".join(updates)
         where_clause = f"WHERE {where}" if where else ""
-        self.cursor.execute(f"UPDATE {table} SET {updates} {where_clause}", values)
+        self.cursor.execute(
+            f"UPDATE {quote(table)} SET {updates} {where_clause}", values
+        )
 
     def update_by_rowid(self, table, rowid, data, **kwargs):
         return self.update(
@@ -187,7 +192,7 @@ class Database:
         )
 
     def delete(self, table, *, where, values={}):
-        self.sql(f"DELETE FROM {table} WHERE {where}", values=values)
+        self.sql(f"DELETE FROM {quote(table)} WHERE {where}", values=values)
 
     def delete_by_rowid(self, table, rowid, **kwargs):
         return self.delete(
@@ -230,13 +235,13 @@ class Database:
         self.connection.close()
 
     def create_table(self, table_name, *columns, values={}):
-        self.sql(f"CREATE TABLE {table_name}({','.join(columns)})", values)
+        self.sql(f"CREATE TABLE {quote(table_name)}({','.join(columns)})", values)
 
     def drop_table(self, table_name):
-        self.sql(f"DROP TABLE {table_name}")
+        self.sql(f"DROP TABLE {quote(table_name)}")
 
     def add_column(self, table_name, column_def):
-        self.sql(f"ALTER TABLE {table_name} ADD COLUMN {column_def}")
+        self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
 
     def drop_column(self, table_name, column_name):
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
@@ -304,19 +309,19 @@ class Database:
             self.sql("PRAGMA foreign_keys = 0")
 
             # Create the new table under a temporary name.
-            tmp_table_name = f"isqlite_tmp_{name}"
+            tmp_table_name = quote(f"isqlite_tmp_{name}")
             new_create_table_statement.name = tmp_table_name
             self.sql(str(new_create_table_statement))
 
             # Copy over all data from the old table into the new table using the
             # provided SELECT values.
-            self.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {name}")
+            self.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {quote(name)}")
 
             # Drop the old table.
-            self.sql(f"DROP TABLE {name}")
+            self.sql(f"DROP TABLE {quote(name)}")
 
             # Rename the new table to the original name.
-            self.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {name}")
+            self.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {quote(name)}")
 
             # Check that no foreign key constraints have been violated.
             self.sql("PRAGMA foreign_key_check")

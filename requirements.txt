@@ -1,4 +1,4 @@
 attrs==21.2.0
 click==8.0.0
-sqliteparser==0.2.2
+sqliteparser==0.2.3
 xcli==0.2

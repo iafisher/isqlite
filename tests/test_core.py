@@ -273,8 +273,22 @@ class DatabaseTests(unittest.TestCase):
                 "people", "name TEXT NOT NULL",
             )
 
-    # TODO: Test create statement with explicit created_at column.
-    # TODO: Test create statement with explicit id column.
+    def test_create_table_with_quoted_name(self):
+        table = 'a"b'
+        self.db.create_table(table, '"c""d" TEXT NOT NULL')
+        self.assertEqual(self.db.count(table), 0)
+        self.assertEqual(self.db.get(table), None)
+        self.assertEqual(self.db.list(table), [])
+
+        column = 'c"d'
+        pk = self.db.create(table, {column: "Lorem ipsum"})
+        row = self.db.get_by_rowid(table, pk)
+        self.assertEqual(row, {column: "Lorem ipsum"})
+
+        self.db.update_by_rowid(table, pk, {column: ""})
+        row = self.db.get_by_rowid(table, pk)
+        self.assertEqual(row, {column: ""})
+
     # TODO: Test migrations.
 
     def tearDown(self):
