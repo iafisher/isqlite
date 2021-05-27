@@ -9,7 +9,7 @@ with open(os.path.join(dpath, "README.md"), "r") as f:
 
 setup(
     name="isqlite",
-    version="0.4.4",
+    version="0.4.5",
     description="An improved Python interface to SQLite",
     long_description=long_description,
     long_description_content_type="text/markdown",
