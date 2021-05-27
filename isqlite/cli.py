@@ -236,6 +236,19 @@ def main_rename_column(path_to_database, table, old_name, new_name):
         print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
 
 
+@cli.command(name="reorder-columns")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("columns", nargs=-1)
+def main_reorder_columns(path_to_database, table, columns):
+    """
+    Change the order of columns in a table.
+    """
+    with Database(path_to_database) as db:
+        db.reorder_columns(table, columns)
+        print(f"Columns of table {table!r} reordered.")
+
+
 @cli.command(name="schema")
 @click.argument("path_to_database")
 @click.argument("table", default="")
