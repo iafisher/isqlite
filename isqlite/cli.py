@@ -458,7 +458,7 @@ def validate_column(column_type, v):
     #
     # (We can't also do this for type validation because SQLite doesn't do type
     #  validation.)
-    if not v:
+    if not v or v == "NULL":
         return True
 
     if column_type == "TIMESTAMP":
