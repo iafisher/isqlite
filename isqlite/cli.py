@@ -27,6 +27,20 @@ def main_add_column(path_to_database, table, column):
         print(f"Column added to table {table!r}.")
 
 
+@cli.command(name="alter-column")
+@click.argument("path_to_database")
+@click.argument("table")
+@click.argument("column")
+def main_alter_column(path_to_database, table, column):
+    """
+    Alter a column's definition.
+    """
+    with Database(path_to_database) as db:
+        column_name, column_def = column.split(maxsplit=1)
+        db.alter_column(table, column_name, column_def)
+        print(f"Column {column_name!r} altered in table {table!r}.")
+
+
 @cli.command(name="create")
 @click.argument("path_to_database")
 @click.argument("table")
