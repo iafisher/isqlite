@@ -113,7 +113,7 @@ def main_create_table(path_to_database, table, columns):
     """
     with Database(path_to_database) as db:
         db.create_table(table, *columns)
-        print("Table {table!r} created.")
+        print(f"Table {table!r} created.")
 
 
 @cli.command(name="delete")
