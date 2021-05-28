@@ -264,7 +264,10 @@ def main_reorder_columns(path_to_database, table, columns):
 @cli.command(name="schema")
 @click.argument("path_to_database")
 @click.argument("table", default="")
-def main_schema(path_to_database, table=""):
+@click.option(
+    "--sql", is_flag=True, default=False, help="Print the schema as raw SQL.",
+)
+def main_schema(path_to_database, table, *, sql):
     """
     Print the schema of a single table or the whole database.
     """
@@ -279,11 +282,14 @@ def main_schema(path_to_database, table=""):
                 print(f"Table {table!r} not found.")
                 sys.exit(1)
 
-            table = [
-                [column.name, get_column_without_name(column)]
-                for column in parse_create_table_statement(rows[0]["sql"]).values()
-            ]
-            print(tabulate(table))
+            if sql:
+                print(rows[0]["sql"])
+            else:
+                table = [
+                    [column.name, get_column_without_name(column)]
+                    for column in parse_create_table_statement(rows[0]["sql"]).values()
+                ]
+                print(tabulate(table))
         else:
             rows = db.sql(
                 "SELECT name, sql FROM sqlite_master "
@@ -294,14 +300,17 @@ def main_schema(path_to_database, table=""):
                 print("No tables found.")
                 sys.exit(1)
 
-            table = []
-            for row in rows:
-                for column in parse_create_table_statement(row["sql"]).values():
-                    table.append(
-                        [row["name"], column.name, get_column_without_name(column)]
-                    )
+            if sql:
+                print("\n\n".join(row["sql"] for row in rows))
+            else:
+                table = []
+                for row in rows:
+                    for column in parse_create_table_statement(row["sql"]).values():
+                        table.append(
+                            [row["name"], column.name, get_column_without_name(column)]
+                        )
 
-            print(tabulate(table))
+                print(tabulate(table))
 
 
 @cli.command(name="sql")
