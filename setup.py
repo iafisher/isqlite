@@ -20,7 +20,7 @@ setup(
     packages=find_packages(exclude=["tests"]),
     install_requires=[
         "click >= 8.0.0",
-        "sqliteparser >= 0.2.4",
+        "sqliteparser >= 0.2.5",
         "tabulate >= 0.8.9",
         "xcli >= 0.2",
     ],
