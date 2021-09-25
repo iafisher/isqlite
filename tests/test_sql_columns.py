@@ -3,9 +3,9 @@ import unittest
 
 from sqliteparser import ast
 
-# We import from isqlite._core because we need access to the raw Column classes, instead
+# We import from isqlite.core because we need access to the raw Column classes, instead
 # of the wrapped classes that isqlite exports. External packages should not do this!
-from isqlite._core import (
+from isqlite.core import (
     BooleanColumn,
     DateColumn,
     DecimalColumn,

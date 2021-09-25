@@ -2,20 +2,20 @@ import datetime
 import decimal
 import sqlite3
 
-from ._core import AddColumnMigration, AlterColumnMigration
-from ._core import BooleanColumnStub as BooleanColumn
-from ._core import (
+from .core import AddColumnMigration, AlterColumnMigration
+from .core import BooleanColumnStub as BooleanColumn
+from .core import (
     ColumnDoesNotExistError,
     CreateTableMigration,
     Database,
     DatabaseMigrator,
 )
-from ._core import DateColumnStub as DateColumn
-from ._core import DecimalColumnStub as DecimalColumn
-from ._core import DropColumnMigration, DropTableMigration
-from ._core import ForeignKeyColumnStub as ForeignKeyColumn
-from ._core import IntegerColumnStub as IntegerColumn
-from ._core import (
+from .core import DateColumnStub as DateColumn
+from .core import DecimalColumnStub as DecimalColumn
+from .core import DropColumnMigration, DropTableMigration
+from .core import ForeignKeyColumnStub as ForeignKeyColumn
+from .core import IntegerColumnStub as IntegerColumn
+from .core import (
     ISqliteApiError,
     ISqliteError,
     PrintDebugger,
@@ -23,10 +23,10 @@ from ._core import (
     Table,
     TableDoesNotExistError,
 )
-from ._core import TextColumnStub as TextColumn
-from ._core import TimeColumnStub as TimeColumn
-from ._core import TimestampColumnStub as TimestampColumn
-from ._core import schema_module_to_dict
+from .core import TextColumnStub as TextColumn
+from .core import TimeColumnStub as TimeColumn
+from .core import TimestampColumnStub as TimestampColumn
+from .core import schema_module_to_dict
 
 
 def sqlite3_convert_boolean(b):

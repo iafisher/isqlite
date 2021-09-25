@@ -9,7 +9,7 @@ import traceback
 import click
 from tabulate import tabulate
 
-from ._core import (
+from .core import (
     CreateTableMigration,
     Database,
     DatabaseMigrator,
