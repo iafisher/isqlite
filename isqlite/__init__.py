@@ -2,8 +2,31 @@ import datetime
 import decimal
 import sqlite3
 
-from ._core import Database
-from ._exception import ISQLiteError
+from ._core import AddColumnMigration, AlterColumnMigration
+from ._core import BooleanColumnStub as BooleanColumn
+from ._core import (
+    ColumnDoesNotExistError,
+    CreateTableMigration,
+    Database,
+    DatabaseMigrator,
+)
+from ._core import DateColumnStub as DateColumn
+from ._core import DecimalColumnStub as DecimalColumn
+from ._core import DropColumnMigration, DropTableMigration
+from ._core import ForeignKeyColumnStub as ForeignKeyColumn
+from ._core import IntegerColumnStub as IntegerColumn
+from ._core import (
+    ISqliteApiError,
+    ISqliteError,
+    PrintDebugger,
+    ReorderColumnsMigration,
+    Table,
+    TableDoesNotExistError,
+)
+from ._core import TextColumnStub as TextColumn
+from ._core import TimeColumnStub as TimeColumn
+from ._core import TimestampColumnStub as TimestampColumn
+from ._core import schema_module_to_dict
 
 
 def sqlite3_convert_boolean(b):
@@ -19,8 +42,17 @@ def sqlite3_adapt_decimal(d):
 
 
 def sqlite3_convert_time(b):
-    hour, minute, second = b.decode("utf8").split(":")
-    return datetime.time(int(hour), int(minute), int(second))
+    parts = b.decode("utf8").split(":", maxsplit=2)
+    if len(parts) == 3:
+        hour = int(parts[0])
+        minute = int(parts[1])
+        second = int(parts[2])
+    else:
+        hour = int(parts[0])
+        minute = int(parts[1])
+        second = 0
+
+    return datetime.time(hour, minute, second)
 
 
 def sqlite3_adapt_time(t):
