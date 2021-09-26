@@ -388,8 +388,10 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
             return
 
         if write and not no_backup:
-            _, backup_name = tempfile.mkstemp(prefix="kgdb-backup-", suffix=".sqlite3")
-            shutil.copy2("/home/iafisher/me.sqlite3", backup_name)
+            _, backup_name = tempfile.mkstemp(
+                prefix="isqlite-backup-", suffix=".sqlite3"
+            )
+            shutil.copy2(db_path, backup_name)
 
         tables_created = 0
         tables_dropped = 0
