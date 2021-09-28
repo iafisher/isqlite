@@ -191,12 +191,13 @@ def main_drop_column(db_path, table, column):
 
 @cli.command(name="drop-table")
 @click.option("--db", "db_path")
+@click.option("--schema", "schema_path")
 @click.argument("table")
-def main_drop_table(db_path, table):
+def main_drop_table(db_path, schema_path, table):
     """
     Drop a table from the database.
     """
-    with Database(db_path) as db:
+    with Database() as db:
         count = db.count(table)
         print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
         print()
@@ -205,7 +206,9 @@ def main_drop_table(db_path, table):
             print("Operation aborted.")
             sys.exit(1)
 
-        db.drop_table(table)
+    schema_module = get_schema_module(schema_path)
+    with DatabaseMigrator(schema_module=schema_module) as migrator:
+        migrator.drop_table(table)
         print()
         print(f"Table {table!r} dropped from the database.")
 
