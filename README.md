@@ -6,16 +6,6 @@ isqlite is an improved Python interface to SQLite. It has a more convenient API,
 from isqlite import Database
 
 with Database(":memory:") as db:
-    # Create the tables defined in the database. This only needs to be done once.
-    db.create_table("teams", "id INTEGER NOT NULL PRIMARY KEY", "name TEXT NOT NULL")
-    db.create_table(
-        "employees",
-        "id INTEGER NOT NULL PRIMARY KEY",
-        "name TEXT NOT NULL",
-        "age INTEGER",
-        "team INTEGER REFERENCES teams",
-    )
-
     # Create a new row in the database.
     pk = db.create("employees", {"name": "John Doe", "age": 30})
 
