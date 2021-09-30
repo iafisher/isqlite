@@ -377,10 +377,14 @@ def base_list(
     default=False,
     help="Run the database in debug mode.",
 )
-def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
+def main_migrate_wrapper(*args, **kwargs):
     """
     Migrate the database to match the Python schema.
     """
+    main_migrate(*args, **kwargs)
+
+
+def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
     schema_module = get_schema_module(schema_path)
     with DatabaseMigrator(
         db_path, schema_module=schema_module, readonly=not write, debugger=debug
