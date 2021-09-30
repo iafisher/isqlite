@@ -1,7 +1,20 @@
+# isqlite
 isqlite is an improved Python interface to SQLite. It has a more convenient API, support for database migrations, and a command-line interface.
 
 **WARNING:** isqlite is in beta. Not all features described here have been implemented yet. If you want to try it out, back up your data first.
 
+
+## Features
+- A more convenient API.
+    - e.g., `db.create("people", {"name": "John Doe"})` instead of `cursor.execute("INSERT INTO people VALUES ('John Doe')")`
+    - Rows are returned as `OrderedDict` objects instead of tuples.
+    - Helper methods to simplify common patterns, e.g. `get_or_create`.
+- Automated database migrations against a schema defined in Python.
+- Support for `decimal.Decimal`, `datetime.time` and `bool` database columns.
+- A command-line interface.
+
+
+## Python interface
 ```python
 from isqlite import Database
 
@@ -42,15 +55,32 @@ with Database(":memory:") as db:
 ```
 
 
-## Features
-- A more convenient API.
-    - e.g., `db.create("people", {"name": "John Doe"})` instead of `cursor.execute("INSERT INTO people VALUES ('John Doe')")`
-    - Rows are returned as `OrderedDict` objects instead of tuples.
-    - Helper methods to simplify common patterns, e.g. `get_or_create`.
-- Automated database migrations: adding, removing, altering and reordering columns.
-- Support for `decimal.Decimal`, `datetime.time` and `bool` database columns.
-- A command-line interface.
+## Database migrations
+In `schema.py` (the exact name of the file does not matter):
 
+```python
+from base.sql import ForeignKeyColumn, IntegerColumn, Table, TextColumn
+
+class Book(Table):
+    title = TextColumn(required=True)
+    author = ForeignKeyColumn(model="authors", required=True)
+    pages = IntegerColumn(required=False)
+
+
+class Authors(Table):
+    name = TextColumn(required=True)
+```
+
+On the command-line (assuming your database is in `db.sqlite3`):
+
+```shell
+$ isqlite --db db.sqlite3 --schema schema.py migrate
+```
+
+The `isqlite migrate` command will compare the database file to the Python schema, and print out the changes required to make the database match the schema. To apply the changes, run `isqlite migrate` again with the `--write` flag.
+
+
+## Limitations
 isqlite is highly suitable for applications that use SQLite as an [application file format](https://sqlite.org/appfileformat.html), and for *ad hoc* operations and migrations on existing SQLite databases. It is less suitable for circumstances in which traditional database engines are used (e.g., web applications), because if you eventually decide that you need to migrate from SQLite to a full-scale RDMS like MySQL or Postgres, you will have to rewrite all the code that uses isqlite.
 
 ### Compared to SQLAlchemy
