@@ -39,7 +39,7 @@ def cli():
 
 
 @cli.command(name="add-column")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("column")
 def main_add_column(db_path, table, column):
@@ -52,7 +52,7 @@ def main_add_column(db_path, table, column):
 
 
 @cli.command(name="alter-column")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("column")
 def main_alter_column(db_path, table, column):
@@ -66,8 +66,8 @@ def main_alter_column(db_path, table, column):
 
 
 @cli.command(name="create")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 def main_create(db_path, schema_path, table):
     """
@@ -97,7 +97,7 @@ def main_create(db_path, schema_path, table):
 
 
 @cli.command(name="create-table")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
 def main_create_table(db_path, table, columns):
@@ -110,7 +110,7 @@ def main_create_table(db_path, table, columns):
 
 
 @cli.command(name="delete")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("pk", type=int, required=False, default=None)
 @click.option("-w", "--where", default="")
@@ -168,7 +168,7 @@ def main_delete(db_path, table, pk, *, where):
 
 
 @cli.command(name="drop-column")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("column")
 def main_drop_column(db_path, table, column):
@@ -190,8 +190,8 @@ def main_drop_column(db_path, table, column):
 
 
 @cli.command(name="drop-table")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 def main_drop_table(db_path, schema_path, table):
     """
@@ -214,8 +214,8 @@ def main_drop_table(db_path, schema_path, table):
 
 
 @cli.command(name="get")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("pk", type=int)
 def main_get(db_path, schema_path, table, pk):
@@ -237,8 +237,8 @@ def main_get(db_path, schema_path, table, pk):
 
 
 @cli.command(name="list")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.option("-w", "--where", default="")
 @click.option("-s", "--search")
@@ -356,8 +356,8 @@ def base_list(
 
 
 @cli.command(name="migrate")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table", required=False, default=None)
 @click.option(
     "--write",
@@ -473,8 +473,8 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
 
 
 @cli.command(name="rename-column")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("old_name")
 @click.argument("new_name")
@@ -489,8 +489,8 @@ def main_rename_column(schema_path, db_path, table, old_name, new_name):
 
 
 @cli.command(name="rename-table")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("new_name")
 def main_rename_table(schema_path, db_path, table, new_name):
@@ -504,8 +504,8 @@ def main_rename_table(schema_path, db_path, table, new_name):
 
 
 @cli.command(name="reorder-columns")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
 def main_reorder_columns(schema_path, db_path, table, columns):
@@ -519,8 +519,8 @@ def main_reorder_columns(schema_path, db_path, table, columns):
 
 
 @cli.command(name="search")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("query")
 @click.option("-w", "--where", default="")
@@ -565,7 +565,7 @@ def main_search(
 
 
 @cli.command(name="sql")
-@click.option("--db", "db_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("query")
 @click.option("--columns", multiple=True, default=[], help=COLUMNS_HELP)
 @click.option("--hide", multiple=True, default=[], help=HIDE_HELP)
@@ -590,8 +590,8 @@ def main_sql(db_path, query, *, columns, hide, page, write):
 
 
 @cli.command(name="update")
-@click.option("--db", "db_path")
-@click.option("--schema", "schema_path")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("pk", type=int)
 def main_update(db_path, schema_path, table, pk):
