@@ -12,6 +12,8 @@ from sqliteparser import ast, quote
 from .utils import StringBuilder, snake_case
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
+AUTO_TIMESTAMP = ("created_at", "last_updated_at")
+AUTO_TIMESTAMP_UPDATE_ONLY = ("last_updated_at",)
 
 
 class Database:
@@ -199,7 +201,7 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_timestamp=("created_at", "last_updated_at")):
+    def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
@@ -223,9 +225,7 @@ class Database:
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_many(
-        self, table, data, *, auto_timestamp=("created_at", "last_updated_at")
-    ):
+    def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
         if not data:
             return
 
@@ -252,7 +252,13 @@ class Database:
         self.cursor.executemany(sql, values)
 
     def update(
-        self, table, data, *, where=None, values={}, auto_timestamp=("last_updated_at",)
+        self,
+        table,
+        data,
+        *,
+        where=None,
+        values={},
+        auto_timestamp=AUTO_TIMESTAMP_UPDATE_ONLY,
     ):
         updates = []
         for key, value in data.items():
