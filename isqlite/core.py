@@ -202,6 +202,9 @@ class Database:
         return result[0]
 
     def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+        if auto_timestamp is None:
+            auto_timestamp = []
+
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
@@ -226,6 +229,9 @@ class Database:
         return self.cursor.lastrowid
 
     def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+        if auto_timestamp is None:
+            auto_timestamp = []
+
         if not data:
             return
 
@@ -260,6 +266,9 @@ class Database:
         values={},
         auto_timestamp=AUTO_TIMESTAMP_UPDATE_ONLY,
     ):
+        if auto_timestamp is None:
+            auto_timestamp = []
+
         updates = []
         for key, value in data.items():
             if key in auto_timestamp:
