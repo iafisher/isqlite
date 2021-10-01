@@ -157,25 +157,6 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(sqlite3.OperationalError):
             self.db.get("deans")
 
-    def test_get_with_camel_case(self):
-        professor = self.db.get(
-            "professors", where="last_name = 'Knuth'", camel_case=True
-        )
-        self.assertEqual(
-            list(professor.keys()),
-            [
-                "id",
-                "firstName",
-                "lastName",
-                "department",
-                "tenured",
-                "retired",
-                "manager",
-                "createdAt",
-                "lastUpdatedAt",
-            ],
-        )
-
     def test_get_related(self):
         course = self.db.get(
             "courses", where="course_number = 399", get_related=["department"]

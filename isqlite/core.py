@@ -9,7 +9,7 @@ import sqliteparser
 from attr import attrib, attrs
 from sqliteparser import ast, quote
 
-from .utils import StringBuilder, camel_case, snake_case
+from .utils import StringBuilder, snake_case
 
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
 
@@ -81,7 +81,7 @@ class Database:
         if transaction:
             self.sql("BEGIN")
 
-    def get(self, table, *, where=None, values={}, camel_case=False, get_related=[]):
+    def get(self, table, *, where=None, values={}, get_related=[]):
         where_clause = f"WHERE {where}" if where else ""
 
         if get_related:
@@ -95,14 +95,12 @@ class Database:
             row = self.sql(
                 f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}",
                 values,
-                camel_case=camel_case,
                 multiple=False,
             )
         else:
             row = self.sql(
                 f"SELECT * FROM {quote(table)} {where_clause}",
                 values,
-                camel_case=camel_case,
                 multiple=False,
             )
 
@@ -113,7 +111,7 @@ class Database:
             table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
-    def get_or_create(self, table, data, *, camel_case=False, **kwargs):
+    def get_or_create(self, table, data, **kwargs):
         if not data:
             raise ISqliteError(
                 "The `data` parameter to `get_or_create` cannot be empty."
@@ -123,7 +121,7 @@ class Database:
         row = self.get(table, where=query, values=data)
         if row is None:
             pk = self.create(table, data, **kwargs)
-            return self.get_by_rowid(table, pk, camel_case=camel_case)
+            return self.get_by_rowid(table, pk)
         else:
             return row
 
@@ -133,7 +131,6 @@ class Database:
         *,
         where=None,
         values={},
-        camel_case=False,
         limit=None,
         offset=None,
         order_by=None,
@@ -182,14 +179,12 @@ class Database:
                 f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}"
                 + f" {order_clause} {limit_clause}",
                 values,
-                camel_case=camel_case,
             )
         else:
             rows = self.sql(
                 f"SELECT * FROM {quote(table)} {where_clause} {order_clause}"
                 + f" {limit_clause}",
                 values,
-                camel_case=camel_case,
             )
 
         return rows
@@ -291,7 +286,7 @@ class Database:
             table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
-    def sql(self, query, values={}, *, as_tuple=False, camel_case=False, multiple=True):
+    def sql(self, query, values={}, *, as_tuple=False, multiple=True):
         if multiple:
             if self.debugger:
                 self.debugger.execute(query, values)
@@ -299,9 +294,6 @@ class Database:
             rows = self.cursor.fetchall()
             if as_tuple:
                 return [tuple(row.values()) for row in rows]
-
-            if camel_case:
-                return [row_to_camel_case(row) for row in rows]
 
             return rows
         else:
@@ -315,9 +307,6 @@ class Database:
 
             if as_tuple:
                 return tuple(row.values())
-
-            if camel_case:
-                return row_to_camel_case(row)
 
             return row
 
@@ -761,12 +750,6 @@ def ordered_dict_row_factory(cursor, row):
             r[name] = value
 
     return r
-
-
-def row_to_camel_case(row):
-    return collections.OrderedDict(
-        (camel_case(key), value) for key, value in row.items()
-    )
 
 
 class BaseColumn(ABC):
