@@ -551,6 +551,7 @@ def main_search(
     """
     base_list(
         db_path,
+        schema_path,
         table,
         where=where,
         search=query,
