@@ -2,6 +2,7 @@ import collections
 import importlib
 import readline  # noqa: F401
 import shutil
+import sqlite3
 import sys
 import tempfile
 import traceback
@@ -304,16 +305,30 @@ def base_list(
     schema_module = get_schema_module(schema_path)
     schema_dict = schema_module_to_dict(schema_module)
     with Database(db_path, readonly=True, schema_module=schema_module) as db:
-        rows = db.list(
-            table,
-            where=where,
-            order_by=order_by,
-            limit=limit,
-            offset=offset,
-            descending=desc if order_by else None,
-            # `get_related` is only possible when the database has a schema.
-            get_related=schema_module is not None,
-        )
+        try:
+            rows = db.list(
+                table,
+                where=where,
+                order_by=order_by,
+                limit=limit,
+                offset=offset,
+                descending=desc if order_by else None,
+                # `get_related` is only possible when the database has a schema.
+                get_related=schema_module is not None,
+            )
+        except sqlite3.OperationalError:
+            # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
+            # errors if the user-supplied WHERE clause has unqualified column names. So
+            # we simply retry on error with `get_related=False`.
+            rows = db.list(
+                table,
+                where=where,
+                order_by=order_by,
+                limit=limit,
+                offset=offset,
+                descending=desc if order_by else None,
+                get_related=False,
+            )
 
         for row in rows:
             for key, value in row.items():
