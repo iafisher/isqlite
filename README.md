@@ -108,42 +108,4 @@ isqlite is highly suitable for applications that use SQLite as an [application f
 
 
 ## API documentation
-### `Database` objects
-```python
-Database(
-  connection_or_path,
-  *,
-  transaction=True,
-  debugger=None,
-  readonly=None,
-  uri=False,
-  schema_module=None,
-)
-```
-
-Construct a `Database` object.
-
-- `connection_or_path` is either a string to be passed to `sqlite3.connect`, or an existing database connection opened with `sqlite3.connect`.
-- If `transaction` is true, the
-- `debugger` should be an object of a class that defines `execute(sql, values)` and `executemany(sql, values)` methods. These methods will be invoked immediately before the database executes any SQL queries. If `debugger` is set to true, then the default `PrintDebugger` will be used, which simply prints the SQL query and values.
-- If `readonly` is true, the database will be opened in read-only mode.
-- If `uri` is true, then `connection_or_path` will be interpreted as a URI instead of a file path. See the documentation for [`sqlite3.connect`](https://docs.python.org/3/library/sqlite3.html#sqlite3.connect) for details.
-- `schema_module` should be a module containing one or more subclasses of `Table`, which defines a schema for the database. The schema is optional, but is required to use certain features such as `get_related`.
-
-```python
-db.get(
-  table,
-  *,
-  where=None,
-  values={},
-  get_related=[],
-)
-```
-
-Get a single row from the database table.
-
-- `where` is a SQL `WHERE` clause, as a string, omitting the `WHERE` keyword at the beginning.
-- `values` is a dictionary of values to substitute in the `where` clause.
-- `get_related` is a list of foreign-key columns which should be fetched using a SQL join and embedded as a nested field on the returned row. It requires that the database was initialized with the `schema_module` parameter.
-
-TODO: more to document!
+API documentation is available at <https://isqlite.readthedocs.io/en/latest/>.
