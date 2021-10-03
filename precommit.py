@@ -13,13 +13,13 @@ def init(precommit):
     precommit.check(checks.DoNotSubmit())
 
     # Check Python format with black.
-    precommit.check(checks.PythonFormat())
+    precommit.check(checks.PythonFormat(exclude=["docs/conf.py"]))
 
     # Lint Python code with flake8.
-    precommit.check(checks.PythonLint())
+    precommit.check(checks.PythonLint(exclude=["docs/conf.py"]))
 
     # Check the order of Python imports with isort.
-    precommit.check(checks.PythonImportOrder())
+    precommit.check(checks.PythonImportOrder(exclude=["docs/conf.py"]))
 
     # Check that requirements.txt matches pip freeze.
     precommit.check(checks.PipFreeze(venv=".venv"))
