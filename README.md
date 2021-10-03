@@ -1,20 +1,20 @@
 # isqlite
 isqlite is an improved Python interface to SQLite. It has a more convenient API, support for database migrations, and a command-line interface.
 
-**WARNING:** isqlite is in beta. Not all features described here have been implemented yet. If you want to try it out, back up your data first.
-
 
 ## Features
-- A more convenient API.
+- An improved Python API.
     - e.g., `db.create("people", {"name": "John Doe"})` instead of `cursor.execute("INSERT INTO people VALUES ('John Doe')")`
     - Rows are returned as `OrderedDict` objects instead of tuples.
     - Helper methods to simplify common patterns, e.g. `get_or_create`.
-- Automated database migrations against a schema defined in Python.
-- Support for `decimal.Decimal`, `datetime.time` and `bool` database columns.
+- Database migrations.
+    - Automatically diff the database against a schema defined in Python and apply the results.
+    - Or, manually alter the database schema from the command line using commands like `isqlite drop-table` and `isqlite rename-column`.
 - A command-line interface.
 
 
-## Python interface
+## Usage
+### Python interface
 ```python
 from isqlite import Database
 
@@ -55,7 +55,8 @@ with Database(":memory:") as db:
 ```
 
 
-## Database migrations
+### Database migrations
+#### Automated
 In `schema.py` (the exact name of the file does not matter):
 
 ```python
@@ -79,6 +80,18 @@ $ isqlite --db db.sqlite3 --schema schema.py migrate
 
 The `isqlite migrate` command will compare the database file to the Python schema, and print out the changes required to make the database match the schema. To apply the changes, run `isqlite migrate` again with the `--write` flag.
 
+#### Manual
+The `isqlite` command-line tool also supports a set of self-explanatory manual migration commands:
+
+- `isqlite add-column`
+- `isqlite alter-column`
+- `isqlite create-table`
+- `isqlite drop-column`
+- `isqlite drop-table`
+- `isqlite rename-column`
+- `isqlite rename-table`
+- `isqlite reorder-columns`
+
 
 ## Limitations
 isqlite is highly suitable for applications that use SQLite as an [application file format](https://sqlite.org/appfileformat.html), and for *ad hoc* operations and migrations on existing SQLite databases. It is less suitable for circumstances in which traditional database engines are used (e.g., web applications), because if you eventually decide that you need to migrate from SQLite to a full-scale RDMS like MySQL or Postgres, you will have to rewrite all the code that uses isqlite.
@@ -95,4 +108,42 @@ isqlite is highly suitable for applications that use SQLite as an [application f
 
 
 ## API documentation
-TODO
+### `Database` objects
+```python
+Database(
+  connection_or_path,
+  *,
+  transaction=True,
+  debugger=None,
+  readonly=None,
+  uri=False,
+  schema_module=None,
+)
+```
+
+Construct a `Database` object.
+
+- `connection_or_path` is either a string to be passed to `sqlite3.connect`, or an existing database connection opened with `sqlite3.connect`.
+- If `transaction` is true, the
+- `debugger` should be an object of a class that defines `execute(sql, values)` and `executemany(sql, values)` methods. These methods will be invoked immediately before the database executes any SQL queries. If `debugger` is set to true, then the default `PrintDebugger` will be used, which simply prints the SQL query and values.
+- If `readonly` is true, the database will be opened in read-only mode.
+- If `uri` is true, then `connection_or_path` will be interpreted as a URI instead of a file path. See the documentation for [`sqlite3.connect`](https://docs.python.org/3/library/sqlite3.html#sqlite3.connect) for details.
+- `schema_module` should be a module containing one or more subclasses of `Table`, which defines a schema for the database. The schema is optional, but is required to use certain features such as `get_related`.
+
+```python
+db.get(
+  table,
+  *,
+  where=None,
+  values={},
+  get_related=[],
+)
+```
+
+Get a single row from the database table.
+
+- `where` is a SQL `WHERE` clause, as a string, omitting the `WHERE` keyword at the beginning.
+- `values` is a dictionary of values to substitute in the `where` clause.
+- `get_related` is a list of foreign-key columns which should be fetched using a SQL join and embedded as a nested field on the returned row. It requires that the database was initialized with the `schema_module` parameter.
+
+TODO: more to document!
