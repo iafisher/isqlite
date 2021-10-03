@@ -13,12 +13,14 @@ Welcome to isqlite's documentation!
 
 .. autoclass:: isqlite.Database
     :members:
-    :undoc-members:
+    :special-members: __init__
+    :member-order: bysource
 
 
 .. autoclass:: isqlite.DatabaseMigrator
     :members:
-    :undoc-members:
+    :special-members: __init__
+    :member-order: bysource
 
 
 Indices and tables

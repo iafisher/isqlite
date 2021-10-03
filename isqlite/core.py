@@ -27,6 +27,48 @@ class Database:
         uri=False,
         schema_module=None,
     ):
+        """
+        Initialize a `Database` object.
+
+        Typical usage:
+
+            with Database("db.sqlite3") as db:
+                ...
+
+        :param path: The path to the database file. You may pass `":memory"` for an in-
+            memory database.
+        :param transaction: If true, a transaction is automatically opened with BEGIN.
+            When the `Database` class is used in a `with` statement, the transaction
+            will be committed at the end (or rolled back if an exception occurs), so
+            either all of the changes in the `with` block will be enacted, or none of
+            them.
+
+            If false, the database will operate in autocommit mode by default, meaning
+            that every statement will be committed immediately. Users can then manage
+            their transactions explicitly with `Database.transaction`, e.g.:
+
+                with Database(transaction=False) as db:
+                    with db.transaction():
+                        ...
+
+                    with db.transaction():
+                        ...
+
+        :param debugger: If true, each SQL statement executed will be printed to
+            standard output. You can also pass an object of a class which defines
+            `execute(sql, values)` and `executemany(sql, values)` methods; these methods
+            will be invoked each time the corresponding method is invoked on the
+            underlying SQLite connection, and the debugger class can use this
+            information for debugging, profiling, or whatever else.
+        :param readonly: If true, the database will be opened in read-only mode. This
+            option is incompatibility with `uri=True`; if you need to pass a URI, then
+            append `?mode=ro` to make it read-only.
+        :param uri: If true, the `path` argument is interpreted as a URI rather than a
+            file path.
+        :param schema_module: A module containing a Python schema for the database. The
+            schema is optional, but is required for certain features, such as the
+            `get_related` parameter of `Database.get` and `Database.list`.
+        """
         # Validate arguments.
         if readonly is not None:
             if uri is True:
@@ -71,50 +113,6 @@ class Database:
         if transaction:
             self.sql("BEGIN")
 
-    def get(self, table, *, where=None, values={}, get_related=[]):
-        where_clause = f"WHERE {where}" if where else ""
-
-        if get_related:
-            if self.schema is None:
-                raise ISqliteApiError(
-                    "get_related requires that the database was initialized with a "
-                    + "schema."
-                )
-
-            columns, joins = self._get_related_columns_and_joins(table, get_related)
-            row = self.sql(
-                f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}",
-                values,
-                multiple=False,
-            )
-        else:
-            row = self.sql(
-                f"SELECT * FROM {quote(table)} {where_clause}",
-                values,
-                multiple=False,
-            )
-
-        return row
-
-    def get_by_rowid(self, table, rowid, **kwargs):
-        return self.get(
-            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
-        )
-
-    def get_or_create(self, table, data, **kwargs):
-        if not data:
-            raise ISqliteError(
-                "The `data` parameter to `get_or_create` cannot be empty."
-            )
-
-        query = " AND ".join(f"{key} = :{key}" for key in data)
-        row = self.get(table, where=query, values=data)
-        if row is None:
-            pk = self.create(table, data, **kwargs)
-            return self.get_by_rowid(table, pk)
-        else:
-            return row
-
     def list(
         self,
         table,
@@ -127,6 +125,30 @@ class Database:
         descending=None,
         get_related=[],
     ):
+        """
+        Return a list of database rows as `OrderedDict` objects.
+
+        :param table: The database table to query. WARNING: This value is directly
+            interpolated into the SQL statement. Do not pass untrusted input, to avoid
+            SQL injection attacks.
+        :param where: A 'where' clause to restrict the query, as a string. The initial
+            `WHERE` keyword should be omitted. To interpolate Python values, put, e.g.,
+            `:placeholder` in the SQL and then pass `{"placeholder": x}` as the `values`
+            parameter.
+        :param values: A dictionary of values to interpolate into the `where` argument.
+        :param limit: An integer limit to the number of rows returned.
+        :param offset: If not None, return results starting from this offset. Can be
+            used in conjunction with `limit` for pagination.
+        :param order_by: If not None, order the results by this column. Order is
+            ascending (smallest values first) by default; for descending order, pass
+            `descending=True`.
+        :param descending: If true, return results in descending order instead of
+            ascending.
+        :param get_related: A list of foreign-key columns of the table to be retrieved
+            and embedded into the returned dictionaries. If true, all foreign-key
+            columns will be retrieved. This parameter requires that `Database` was
+            initialized with a `schema_module` parameter.
+        """
         if order_by:
             if isinstance(order_by, (tuple, list)):
                 order_by = ", ".join(order_by)
@@ -179,7 +201,93 @@ class Database:
 
         return rows
 
+    def get(self, table, *, where=None, values={}, get_related=[]):
+        """
+        Retrieve a single row from the database table and return it as an `OrderedDict`
+        object.
+
+        :param table: The database table to query. WARNING: This value is directly
+            interpolated into the SQL statement. Do not pass untrusted input, to avoid
+            SQL injection attacks.
+        :param where: Same as for `Database.list`.
+        :param values: Same as for `Database.list`.
+        :param get_related: Same as for `Database.list`.
+        """
+        where_clause = f"WHERE {where}" if where else ""
+
+        if get_related:
+            if self.schema is None:
+                raise ISqliteApiError(
+                    "get_related requires that the database was initialized with a "
+                    + "schema."
+                )
+
+            columns, joins = self._get_related_columns_and_joins(table, get_related)
+            row = self.sql(
+                f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}",
+                values,
+                multiple=False,
+            )
+        else:
+            row = self.sql(
+                f"SELECT * FROM {quote(table)} {where_clause}",
+                values,
+                multiple=False,
+            )
+
+        return row
+
+    def get_by_rowid(self, table, rowid, **kwargs):
+        """
+        Retrieve a single row from the database table by its primary key.
+
+        :param table: The database table to query. WARNING: This value is directly
+            interpolated into the SQL statement. Do not pass untrusted input, to avoid
+            SQL injection attacks.
+        :param rowid: The primary key of the row to return.
+        :param kwargs: Additional arguments to pass on to `Database.get`.
+        """
+        return self.get(
+            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+        )
+
+    def get_or_create(self, table, data, **kwargs):
+        """
+        Retrieve a single row from the database table matching the parameters in `data`.
+        If no such row exists, create it and return it.
+
+        :param table: The database table to query. WARNING: This value is directly
+            interpolated into the SQL statement. Do not pass untrusted input, to avoid
+            SQL injection attacks.
+        :param data: The parameters to match the database row. All required columns of
+            the table must be included, or else the internal call to `Database.create`
+            will fail.
+        :param kwargs: Additional arguments to pass on to `Database.create`. If the
+            database row already exists, these arguments are ignored.
+        """
+        if not data:
+            raise ISqliteError(
+                "The `data` parameter to `get_or_create` cannot be empty."
+            )
+
+        query = " AND ".join(f"{key} = :{key}" for key in data)
+        row = self.get(table, where=query, values=data)
+        if row is None:
+            pk = self.create(table, data, **kwargs)
+            return self.get_by_rowid(table, pk)
+        else:
+            return row
+
     def count(self, table, *, where=None, values={}):
+        """
+        Return the count of rows matching the parameters.
+
+        :param table: The database table to query. WARNING: This value is directly
+            interpolated into the SQL statement. Do not pass untrusted input, to avoid
+            SQL injection attacks.
+        :param where: Same as for `Database.list`.
+        :param values: Same as for `Database.list`.
+        """
         where_clause = f"WHERE {where}" if where else ""
         result = self.sql(
             f"SELECT COUNT(*) FROM {quote(table)} {where_clause}",
@@ -190,6 +298,17 @@ class Database:
         return result[0]
 
     def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+        """
+        Insert a new row.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param data: The row to insert, as a dictionary from column names to column
+            values.
+        :param auto_timestamp: A list of columns into which to insert the current time,
+            as an ISO 8601 timestamp. To disable auto timestamps, pass None.
+        """
         if auto_timestamp is None:
             auto_timestamp = []
 
@@ -217,6 +336,16 @@ class Database:
         return self.cursor.lastrowid
 
     def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+        """
+        Insert multiple rows at once.
+
+        Equivalent to
+
+            for row in data:
+                db.create(table, row)
+
+        but more efficient.
+        """
         if auto_timestamp is None:
             auto_timestamp = []
 
@@ -254,6 +383,18 @@ class Database:
         values={},
         auto_timestamp=AUTO_TIMESTAMP_UPDATE_ONLY,
     ):
+        """
+        Update an existing row.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param data: The columns to update, as a dictionary from column names to column
+            values.
+        :param where: Restrict the set of rows to update. Same as for `Database.list`.
+        :param values: Same as for `Database.list`.
+        :param auto_timestamp: Same as for `Database.create`.
+        """
         if auto_timestamp is None:
             auto_timestamp = []
 
@@ -277,19 +418,61 @@ class Database:
         self.cursor.execute(sql, values)
 
     def update_by_rowid(self, table, rowid, data, **kwargs):
+        """
+        Update a single row.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param rowid: The primary key of the row to update.
+        :param data: Same as for `Database.update`.
+        :param kwargs: Additional arguments to pass on to `Database.update`.
+        """
         return self.update(
             table, data, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
     def delete(self, table, *, where, values={}):
+        """
+        Delete a set of rows.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param where: Same as for `Database.list`, except that it is required, to avoid
+            accidentally deleting every row in a table. If you indeed wish to delete
+            every row, then pass `where="1"`.
+        :param values: Same as for `Database.list`.
+        """
         self.sql(f"DELETE FROM {quote(table)} WHERE {where}", values=values)
 
     def delete_by_rowid(self, table, rowid, **kwargs):
+        """
+        Delete a single row.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param rowid: The primary key of the row to delete.
+        :param kwargs: Additional arguments to pass on to `Database.delete`.
+        """
         return self.delete(
             table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
         )
 
     def sql(self, query, values={}, *, as_tuple=False, multiple=True):
+        """
+        Execute a raw SQL query.
+
+        :param query: The SQL query, as a string.
+        :param values: A dictionary of values to interpolate into the query.
+        :param as_tuple: If true, the rows are returned as tuples of values instead of
+            `OrderedDict` objects. This is useful for aggregation queries, e.g.
+            `COUNT(*)`.
+        :param multiple: If true, the return type will be a list (though the list may
+            be empty or only contain a single row). If false, the return type will
+            either be a tuple (if `as_tuple=True`) or an `OrderedDict` object.
+        """
         if multiple:
             if self.debugger:
                 self.debugger.execute(query, values)
@@ -314,22 +497,64 @@ class Database:
             return row
 
     def transaction(self):
+        """
+        Begin a new transaction in a context manager.
+
+        Intended for use as:
+
+            with Database(transaction=False) as db:
+               with db.transaction():
+                   ...
+
+               with db.transaction():
+                   ...
+
+        The return value of this method should be ignored.
+        """
         return TransactionContextManager(self)
 
     def begin_transaction(self):
+        """
+        Begin a new transaction.
+
+        Most users do not need this method. Instead, they should either use the default
+        transaction opened by `Database` as a context manager, or they should explicitly
+        manage their transactions with nested `with db.transaction()` statements.
+        """
         self.sql("BEGIN")
 
     def commit(self):
+        """
+        Commit the current transaction.
+
+        Most users do not need this method. See the note to
+        `Database.begin_transaction`.
+        """
         self.sql("COMMIT")
 
     def rollback(self):
+        """
+        Roll back the current transaction.
+
+        Most users do not need this method. See the note to
+        `Database.begin_transaction`.
+        """
         self.sql("ROLLBACK")
 
     @property
     def in_transaction(self):
+        """
+        Whether or not the database is currently in a transaction.
+        """
         return self.connection.in_transaction
 
     def close(self):
+        """
+        Close the database connection. If a transaction is pending, commit it.
+
+        Most users do not need this method. Instead, they should use `Database` in a
+        `with` statement so that the database will be closed automatically.
+        """
         if self.in_transaction:
             self.commit()
         self.connection.close()
