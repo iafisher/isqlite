@@ -19,7 +19,7 @@ AUTO_TIMESTAMP_UPDATE_ONLY = ("last_updated_at",)
 class Database:
     def __init__(
         self,
-        connection_or_path,
+        path,
         *,
         transaction=True,
         debugger=None,
@@ -35,36 +35,24 @@ class Database:
                     + "'?mode=ro' (or omit it if you don't want your connection to be "
                     + "read-only) to your URI instead."
                 )
-
-            if not isinstance(connection_or_path, str):
-                if readonly is not None:
-                    raise ISqliteApiError(
-                        "The `readonly` parameter can only be set if a database path "
-                        + "is passed, not an existing database connection."
-                    )
         else:
             # Default value of `readonly` if not specified is False.
             readonly = False
 
-        if isinstance(connection_or_path, str):
-            if uri:
-                path = connection_or_path
+        if not uri:
+            if readonly is True:
+                path = f"file:{path}?mode=ro"
             else:
-                if readonly is True:
-                    path = f"file:{connection_or_path}?mode=ro"
-                else:
-                    path = f"file:{connection_or_path}"
+                path = f"file:{path}"
 
-            # Setting `isolation_level` to None disables quirky behavior around
-            # transactions, per https://stackoverflow.com/questions/30760997/
-            self.connection = sqlite3.connect(
-                path,
-                detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-                uri=True,
-                isolation_level=None,
-            )
-        else:
-            self.connection = connection_or_path
+        # Setting `isolation_level` to None disables quirky behavior around
+        # transactions, per https://stackoverflow.com/questions/30760997/
+        self.connection = sqlite3.connect(
+            path,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+            uri=True,
+            isolation_level=None,
+        )
 
         if debugger is True:
             debugger = PrintDebugger()
