@@ -161,6 +161,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_add_column(self, mock_stdout):
         self.create_table(with_data=True)
+
         cli.main_add_column(
             self.db_file_path,
             "books",
@@ -185,6 +186,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_alter_column(self, mock_stdout):
         self.create_table(with_data=True)
+
         cli.main_alter_column(
             self.db_file_path,
             "tests/schema_basic.py",
@@ -215,6 +217,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_delete(self, mock_stdout):
         self.create_table(with_data=True)
+
         cli.main_delete(self.db_file_path, "books", 1, no_confirm=True)
         mock_stdout.clear()
 
@@ -224,6 +227,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_drop_column(self, mock_stdout):
         self.create_table(with_data=True)
+
         cli.main_drop_column(
             self.db_file_path,
             "tests/schema_basic.py",
@@ -248,6 +252,16 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_drop_table(self, mock_stdout):
+        self.create_table()
+
+        cli.main_drop_table(self.db_file_path, "books", no_confirm=True)
+        mock_stdout.clear()
+
+        cli.main_list_tables(self.db_file_path)
+        self.assertEqual(mock_stdout.getvalue(), "")
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_list_tables(self, mock_stdout):
         self.create_table()
         mock_stdout.clear()
@@ -258,6 +272,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_update(self, mock_stdout):
         self.create_table(with_data=True)
+
         cli.main_update(
             self.db_file_path, "books", 1, ["author=C. McCarthy"], auto_timestamp=False
         )

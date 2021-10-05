@@ -277,24 +277,32 @@ def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
 
 @cli.command(name="drop-table")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
-def main_drop_table(db_path, schema_path, table):
+@click.option(
+    "--no-confirm",
+    is_flag=True,
+    default=False,
+    help=NO_CONFIRM_HELP,
+)
+def main_drop_table_wrapper(*args, **kwargs):
     """
     Drop a table from the database.
     """
-    with Database() as db:
-        count = db.count(table)
-        print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
-        print()
-        if not click.confirm("Are you sure you wish to drop this table?"):
-            print()
-            print("Operation aborted.")
-            sys.exit(1)
+    main_drop_table(*args, **kwargs)
 
-    schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(schema_module=schema_module) as migrator:
-        migrator.drop_table(table)
+
+def main_drop_table(db_path, table, *, no_confirm=False):
+    with Database(db_path) as db:
+        if not no_confirm:
+            count = db.count(table)
+            print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+            print()
+            if not click.confirm("Are you sure you wish to drop this table?"):
+                print()
+                print("Operation aborted.")
+                sys.exit(1)
+
+        db.drop_table(table)
         print()
         print(f"Table {table!r} dropped from the database.")
 
@@ -487,7 +495,9 @@ def main_list_tables(db_path):
             """,
             as_tuple=True,
         )
-        print("\n".join(row[0] for row in rows))
+
+        if rows:
+            print("\n".join(row[0] for row in rows))
 
 
 @cli.command(name="migrate")
