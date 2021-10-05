@@ -262,6 +262,24 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.assertEqual(mock_stdout.getvalue(), "")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_get(self, mock_stdout):
+        self.create_table(with_data=True)
+        mock_stdout.clear()
+
+        cli.main_get(self.db_file_path, None, "books", 1)
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+                ------  ---------------
+                title   Blood Meridian
+                author  Cormac McCarthy
+                ------  ---------------
+            """
+            ),
+        )
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_list_tables(self, mock_stdout):
         self.create_table()
         mock_stdout.clear()

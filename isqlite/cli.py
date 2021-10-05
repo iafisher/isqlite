@@ -312,14 +312,22 @@ def main_drop_table(db_path, table, *, no_confirm=False):
 @click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("pk", type=int)
-def main_get(db_path, schema_path, table, pk):
+def main_get_wrapper(*args, **kwargs):
     """
     Fetch a single row.
     """
-    schema_module = get_schema_module(schema_path)
-    schema_dict = schema_module_to_dict(schema_module)
+    main_get(*args, **kwargs)
+
+
+def main_get(db_path, schema_path, table, pk):
+    if schema_path:
+        schema_module = get_schema_module(schema_path)
+        schema_dict = schema_module_to_dict(schema_module)
+    else:
+        schema_module = None
+
     with Database(db_path, readonly=True, schema_module=schema_module) as db:
-        row = db.get_by_rowid(table, pk, get_related=True)
+        row = db.get_by_rowid(table, pk, get_related=schema_module is not None)
         for key, value in row.items():
             if isinstance(value, collections.OrderedDict):
                 row[key] = get_column_as_string(schema_dict, table, key, value)
