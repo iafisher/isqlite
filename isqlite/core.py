@@ -309,8 +309,10 @@ class Database:
         :param auto_timestamp: A list of columns into which to insert the current time,
             as an ISO 8601 timestamp. To disable auto timestamps, pass None.
         """
-        if auto_timestamp is None:
+        if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
+        elif auto_timestamp is True:
+            auto_timestamp = AUTO_TIMESTAMP
 
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
@@ -346,8 +348,10 @@ class Database:
 
         but more efficient.
         """
-        if auto_timestamp is None:
+        if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
+        elif auto_timestamp is True:
+            auto_timestamp = AUTO_TIMESTAMP
 
         if not data:
             return
@@ -395,8 +399,10 @@ class Database:
         :param values: Same as for `Database.list`.
         :param auto_timestamp: Same as for `Database.create`.
         """
-        if auto_timestamp is None:
+        if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
+        elif auto_timestamp is True:
+            auto_timestamp = AUTO_TIMESTAMP_UPDATE_ONLY
 
         updates = []
         for key, value in data.items():
@@ -512,6 +518,11 @@ class Database:
         self.sql(f"CREATE TABLE {quote(table_name)}({','.join(map(str, columns))})")
 
     def drop_table(self, table_name):
+        """
+        Drop a table.
+
+        :param table_name: The name of the table to drop.
+        """
         self.sql(f"DROP TABLE {quote(table_name)}")
 
     def rename_table(self, old_table_name, new_table_name):

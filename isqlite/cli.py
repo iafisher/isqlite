@@ -72,9 +72,44 @@ def main_alter_column(db_path, table, column):
 
 @cli.command(name="create")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.argument("table")
+@click.argument("payload", nargs=-1)
+@click.option(
+    "--auto-timestamp",
+    is_flag=True,
+    default=True,
+    help=(
+        "Automatically populate `created_at` and `last_updated_at` columns with "
+        + "current time."
+    ),
+)
+def main_create_wrapper(*args, **kwargs):
+    """
+    Create a new row non-interactively.
+
+    PAYLOAD should be a list of space-separated key-value pairs, e.g.
+
+        isqlite create --db db.sqlite3 my_table a=1 b=2
+    """
+    return main_create(*args, **kwargs)
+
+
+def main_create(db_path, table, payload, *, auto_timestamp=True):
+    payload_as_map = {}
+    for key_value in payload:
+        key, value = key_value.split("=")
+        payload_as_map[key] = value
+
+    with Database(db_path) as db:
+        pk = db.create(table, payload_as_map, auto_timestamp=auto_timestamp)
+        print(f"Row {pk} created.")
+
+
+@cli.command(name="icreate")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
-def main_create(db_path, schema_path, table):
+def main_icreate(db_path, schema_path, table):
     """
     Create a new row interactively.
     """
@@ -258,24 +293,28 @@ def main_get(db_path, schema_path, table, pk):
 @click.option("--offset", default=None, help=OFFSET_HELP)
 @click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
 @click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+def main_list_wrapper(*args, **kwargs):
+    """
+    List the rows in the table, optionally filtered by a SQL clause.
+    """
+    main_list(*args, **kwargs)
+
+
 def main_list(
     db_path,
     schema_path,
     table,
     *,
-    where,
-    search,
-    columns,
-    hide,
-    page,
-    limit,
-    offset,
-    order_by,
-    desc,
+    where=None,
+    search="",
+    columns=[],
+    hide=[],
+    page=1,
+    limit=None,
+    offset=None,
+    order_by=[],
+    desc=False,
 ):
-    """
-    List the rows in the table, optionally filtered by a SQL clause.
-    """
     base_list(
         db_path,
         schema_path,
@@ -310,8 +349,12 @@ def base_list(
     """
     Base implementation shared by `main_list` and `main_search`
     """
-    schema_module = get_schema_module(schema_path)
-    schema_dict = schema_module_to_dict(schema_module)
+    if schema_path:
+        schema_module = get_schema_module(schema_path)
+        schema_dict = schema_module_to_dict(schema_module)
+    else:
+        schema_module = None
+
     with Database(db_path, readonly=True, schema_module=schema_module) as db:
         try:
             rows = db.list(

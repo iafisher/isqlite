@@ -1,21 +1,47 @@
+import io
 import tempfile
+import textwrap
 import unittest
+from unittest.mock import patch
 
 from isqlite import Database, cli
+
+
+class ClearableStringIO(io.StringIO):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clear_index = 0
+
+    def getvalue(self):
+        v = super().getvalue()
+        return v[self.clear_index :]
+
+    def clear(self):
+        v = super().getvalue()
+        self.clear_index = len(v)
 
 
 class TemporaryFileTestCase(unittest.TestCase):
     def setUp(self):
         _, self.db_file_path = tempfile.mkstemp()
 
-    def create_table(self):
+    def create_table(self, *, with_data=False):
         cli.main_create_table(
             self.db_file_path, "books", ["title TEXT NOT NULL", "author TEXT NOT NULL"]
         )
 
+        if with_data:
+            cli.main_create(
+                self.db_file_path,
+                "books",
+                ["title=Blood Meridian", "author=Cormac McCarthy"],
+                auto_timestamp=False,
+            )
+
 
 class MigrateTests(TemporaryFileTestCase):
-    def test_migration(self):
+    @patch("sys.stdout")
+    def test_migration(self, mock_stdout):
         # Initial migration to populate the database schema.
         cli.main_migrate(
             self.db_file_path,
@@ -132,10 +158,30 @@ class MigrateTests(TemporaryFileTestCase):
 
 
 class OtherCommandsTests(TemporaryFileTestCase):
-    def test_add_column(self):
-        self.create_table()
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_add_column(self, mock_stdout):
+        self.create_table(with_data=True)
         cli.main_add_column(
             self.db_file_path,
             "books",
             "pages INTEGER",
         )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title           author           pages
+            --------------  ---------------  -------
+            Blood Meridian  Cormac McCarthy
+
+            1 row(s).
+            """
+            ),
+        )
+
+
+def S(s):
+    return textwrap.dedent(s).lstrip("\n")
