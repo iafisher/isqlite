@@ -40,6 +40,7 @@ DESC_HELP = (
     "When combined with --order-by, order the results in descending rather than "
     + "ascending order."
 )
+NO_CONFIRM_HELP = "Do not prompt for confirmation."
 
 
 @click.group()
@@ -176,7 +177,7 @@ def main_create_table(db_path, table, columns):
     "--no-confirm",
     is_flag=True,
     default=False,
-    help="Do not confirm before deleting rows.",
+    help=NO_CONFIRM_HELP,
 )
 def main_delete_wrapper(*args, **kwargs):
     """
@@ -239,22 +240,37 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
 
 @cli.command(name="drop-column")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("column")
-def main_drop_column(db_path, table, column):
+@click.option(
+    "--no-confirm",
+    is_flag=True,
+    default=False,
+    help=NO_CONFIRM_HELP,
+)
+def main_drop_column_wrapper(*args, **kwargs):
     """
     Drop a column from a table.
     """
-    with Database(db_path) as db:
-        count = db.count(table)
-        print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
-        print()
-        if not click.confirm("Are you sure you wish to drop this column?"):
-            print()
-            print("Operation aborted.")
-            sys.exit(1)
+    main_drop_column(*args, **kwargs)
 
-        db.drop_column(table, column)
+
+def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
+    schema_module = get_schema_module(schema_path)
+    if not no_confirm:
+        with Database(db_path) as db:
+            count = db.count(table)
+
+            print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+            print()
+            if not click.confirm("Are you sure you wish to drop this column?"):
+                print()
+                print("Operation aborted.")
+                sys.exit(1)
+
+    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
+        migrator.drop_column(table, column)
         print()
         print(f"Column {column!r} dropped from table {table!r}.")
 

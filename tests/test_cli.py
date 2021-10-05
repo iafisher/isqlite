@@ -222,6 +222,32 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_drop_column(self, mock_stdout):
+        self.create_table(with_data=True)
+        cli.main_drop_column(
+            self.db_file_path,
+            "tests/schema_basic.py",
+            "books",
+            "author",
+            no_confirm=True,
+        )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title
+            --------------
+            Blood Meridian
+
+            1 row(s).
+            """
+            ),
+        )
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_list_tables(self, mock_stdout):
         self.create_table()
         mock_stdout.clear()
