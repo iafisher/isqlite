@@ -4,10 +4,17 @@ import unittest
 from isqlite import Database, cli
 
 
-class MigrateTests(unittest.TestCase):
+class TemporaryFileTestCase(unittest.TestCase):
     def setUp(self):
         _, self.db_file_path = tempfile.mkstemp()
 
+    def create_table(self):
+        cli.main_create_table(
+            self.db_file_path, "books", ["title TEXT NOT NULL", "author TEXT NOT NULL"]
+        )
+
+
+class MigrateTests(TemporaryFileTestCase):
     def test_migration(self):
         # Initial migration to populate the database schema.
         cli.main_migrate(
@@ -122,3 +129,13 @@ class MigrateTests(unittest.TestCase):
             self.assertEqual(professor["department"], department_id)
             self.assertEqual(professor["retired"], True)
             self.assertEqual(professor["manager"], None)
+
+
+class OtherCommandsTests(TemporaryFileTestCase):
+    def test_add_column(self):
+        self.create_table()
+        cli.main_add_column(
+            self.db_file_path,
+            "books",
+            "pages INTEGER",
+        )

@@ -43,10 +43,14 @@ def cli():
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("column")
-def main_add_column(db_path, table, column):
+def main_add_column_wrapper(*args, **kwargs):
     """
     Add a column to a table.
     """
+    main_add_column(*args, **kwargs)
+
+
+def main_add_column(db_path, table, column):
     with Database(db_path) as db:
         db.add_column(table, column)
         print(f"Column added to table {table!r}.")
@@ -101,12 +105,16 @@ def main_create(db_path, schema_path, table):
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
-def main_create_table(db_path, table, columns):
+def main_create_table_wrapper(*args, **kwargs):
     """
     Create a table.
     """
+    main_create_table(*args, **kwargs)
+
+
+def main_create_table(db_path, table, columns):
     with Database(db_path) as db:
-        db.create_table(table, *columns)
+        db.create_table(table, columns)
         print(f"Table {table!r} created.")
 
 

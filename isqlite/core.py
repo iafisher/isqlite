@@ -496,6 +496,41 @@ class Database:
 
             return row
 
+    def create_table(self, table_name, columns):
+        """
+        Create a new table.
+
+        :param table_name: The name of the table to create.
+        :param columns: A list of columns, as raw SQL strings.
+        """
+        if isinstance(columns, str):
+            raise ISqliteApiError(
+                "second argument to DatabaseMigrator.create_table must be a list, "
+                + "not a string"
+            )
+
+        self.sql(f"CREATE TABLE {quote(table_name)}({','.join(map(str, columns))})")
+
+    def drop_table(self, table_name):
+        self.sql(f"DROP TABLE {quote(table_name)}")
+
+    def rename_table(self, old_table_name, new_table_name):
+        """
+        Rename a table.
+        """
+        self.sql(
+            f"ALTER TABLE {quote(old_table_name)} RENAME TO {quote(new_table_name)}"
+        )
+
+    def add_column(self, table_name, column_def):
+        """
+        Add a column to the table's schema.
+
+        :param table_name: The name of the table.
+        :param column_def: The definition of the column to add, as raw SQL.
+        """
+        self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
+
     def transaction(self):
         """
         Begin a new transaction in a context manager.
@@ -766,8 +801,8 @@ class DatabaseMigrator:
                     raise ISqliteError("unknown migration op type")
 
     def begin(self):
-        # We disable foreign keys before the SAVEPOINT statement because, per the
-        # SQLite docs:
+        # We disable foreign keys before the BEGIN statement because, per the SQLite
+        # docs:
         #
         #  foreign key constraint enforcement may only be enabled or disabled when
         #  there is no pending BEGIN or SAVEPOINT
@@ -792,25 +827,17 @@ class DatabaseMigrator:
             self.db.rollback()
         self.db.sql("PRAGMA foreign_keys = 1")
 
-    def create_table(self, table_name, columns):
-        if isinstance(columns, str):
-            raise ISqliteApiError(
-                "second argument to DatabaseMigrator.create_table must be a list, "
-                + "not a string"
-            )
+    def create_table(self, *args, **kwargs):
+        self.db.create_table(*args, **kwargs)
 
-        self.db.sql(f"CREATE TABLE {quote(table_name)}({','.join(map(str, columns))})")
+    def drop_table(self, *args, **kwargs):
+        self.db.drop_table(*args, **kwargs)
 
-    def drop_table(self, table_name):
-        self.db.sql(f"DROP TABLE {quote(table_name)}")
+    def rename_table(self, *args, **kwargs):
+        self.db.rename_table(*args, **kwargs)
 
-    def rename_table(self, old_table_name, new_table_name):
-        self.db.sql(
-            f"ALTER TABLE {quote(old_table_name)} RENAME TO {quote(new_table_name)}"
-        )
-
-    def add_column(self, table_name, column_def):
-        self.db.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
+    def add_column(self, *args, **kwargs):
+        self.db.add_column(*args, **kwargs)
 
     def drop_column(self, table_name, column_name):
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
