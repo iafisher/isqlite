@@ -1,3 +1,11 @@
+"""
+The implementation of the `isqlite` command-line tool.
+
+A subcommand of `isqlite` called `xyz` will be implemented in a function called
+`main_xyz`, with a corresponding wrapper function called `main_xyz_wrapper` that is
+used by Click, the argument parsing framework. The tests in `tests/test_cli.py` call
+`main_xyz` directly.
+"""
 import collections
 import importlib
 import readline  # noqa: F401
@@ -674,12 +682,45 @@ def main_sql(db_path, query, *, columns, hide, page, write):
             print("No rows found.")
 
 
-@cli.command(name="update")
+@cli.command(name="create")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.argument("table")
+@click.argument("pk", type=int)
+@click.argument("payload", nargs=-1)
+@click.option(
+    "--auto-timestamp",
+    is_flag=True,
+    default=True,
+    help="Automatically populate `last_updated_at` column with current time.",
+)
+def main_update_wrapper(*args, **kwargs):
+    """
+    Update an existing row non-interactively.
+
+    PAYLOAD should be a list of space-separated key-value pairs, e.g.
+
+        isqlite update --db db.sqlite3 my_table 123 a=1 b=2
+    """
+    main_update(*args, **kwargs)
+
+
+def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
+    payload_as_map = {}
+    for key_value in payload:
+        key, value = key_value.split("=")
+        payload_as_map[key] = value
+
+    with Database(db_path) as db:
+        db.update_by_rowid(table, pk, payload_as_map, auto_timestamp=auto_timestamp)
+        print(f"Row {pk} updated.")
+
+
+@cli.command(name="iupdate")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("pk", type=int)
-def main_update(db_path, schema_path, table, pk):
+def main_iupdate(db_path, schema_path, table, pk):
     """
     Update an existing row interactively.
     """

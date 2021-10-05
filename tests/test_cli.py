@@ -221,6 +221,28 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_list(self.db_file_path, None, "books")
         self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
 
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_update(self, mock_stdout):
+        self.create_table(with_data=True)
+        cli.main_update(
+            self.db_file_path, "books", 1, ["author=C. McCarthy"], auto_timestamp=False
+        )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title           author
+            --------------  -----------
+            Blood Meridian  C. McCarthy
+
+            1 row(s).
+            """
+            ),
+        )
+
 
 def S(s):
     return textwrap.dedent(s).lstrip("\n")
