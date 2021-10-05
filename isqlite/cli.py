@@ -757,7 +757,7 @@ def main_sql(db_path, query, *, columns, hide, page, write):
             print("No rows found.")
 
 
-@cli.command(name="create")
+@cli.command(name="update")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("pk", type=int)
