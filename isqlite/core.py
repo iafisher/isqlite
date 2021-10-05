@@ -1338,6 +1338,7 @@ class Table(metaclass=TableMeta):
 
 class AutoTableMeta(type):
     def __new__(cls, name, bases, dct):
+        # TODO(2021-10-05): Factor out shared code with `TableMeta` class.
         x = super().__new__(cls, name, bases, dct)
 
         columns = collections.OrderedDict()

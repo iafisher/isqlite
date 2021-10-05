@@ -164,10 +164,20 @@ def main_create_table(db_path, table, columns):
 @click.argument("table")
 @click.argument("pk", type=int, required=False, default=None)
 @click.option("-w", "--where", default="")
-def main_delete(db_path, table, pk, *, where):
+@click.option(
+    "--no-confirm",
+    is_flag=True,
+    default=False,
+    help="Do not confirm before deleting rows.",
+)
+def main_delete_wrapper(*args, **kwargs):
     """
     Delete a row.
     """
+    main_delete(*args, **kwargs)
+
+
+def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
     with Database(db_path) as db:
         if pk is not None:
             try:
@@ -186,26 +196,28 @@ def main_delete(db_path, table, pk, *, where):
 
                 prettyprint_row(row)
 
-            print()
-            if not click.confirm("Are you sure you wish to delete this record?"):
+            if not no_confirm:
                 print()
-                print("Operation aborted.")
-                sys.exit(1)
+                if not click.confirm("Are you sure you wish to delete this record?"):
+                    print()
+                    print("Operation aborted.")
+                    sys.exit(1)
 
             db.delete_by_rowid(table, pk)
             print()
             print(f"Row {pk} deleted from table {table!r}.")
         else:
-            n = db.count(table, where=where)
-            if not where:
-                msg = f"Are you sure you wish to delete ALL {n} row(s) from {table!r}?"
-            else:
-                msg = f"Are you sure you wish to delete {n} row(s) from {table!r}?"
+            if not no_confirm:
+                n = db.count(table, where=where)
+                if not where:
+                    msg = f"Are you sure you wish to delete ALL {n} row(s) from {table!r}?"
+                else:
+                    msg = f"Are you sure you wish to delete {n} row(s) from {table!r}?"
 
-            if not click.confirm(msg):
-                print()
-                print("Operation aborted.")
-                sys.exit(1)
+                if not click.confirm(msg):
+                    print()
+                    print("Operation aborted.")
+                    sys.exit(1)
 
             # `Database.delete` doesn't accept a blank `where` parameter for safety
             # reasons, so we use an explicit WHERE clause that will match every row.

@@ -212,6 +212,15 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_delete(self, mock_stdout):
+        self.create_table(with_data=True)
+        cli.main_delete(self.db_file_path, "books", 1, no_confirm=True)
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
+
 
 def S(s):
     return textwrap.dedent(s).lstrip("\n")
