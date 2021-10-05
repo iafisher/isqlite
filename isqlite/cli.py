@@ -631,10 +631,14 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
 @click.argument("table")
 @click.argument("old_name")
 @click.argument("new_name")
-def main_rename_column(schema_path, db_path, table, old_name, new_name):
+def main_rename_column_wrapper(*args, **kwargs):
     """
     Rename a column.
     """
+    main_rename_column(*args, **kwargs)
+
+
+def main_rename_column(db_path, schema_path, table, old_name, new_name):
     schema_module = get_schema_module(schema_path)
     with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
         migrator.rename_column(table, old_name, new_name)
@@ -643,16 +647,18 @@ def main_rename_column(schema_path, db_path, table, old_name, new_name):
 
 @cli.command(name="rename-table")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("new_name")
-def main_rename_table(schema_path, db_path, table, new_name):
+def main_rename_table_wrapper(*args, **kwargs):
     """
     Rename a table.
     """
-    schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
-        migrator.rename_table(table, new_name)
+    main_rename_table(*args, **kwargs)
+
+
+def main_rename_table(db_path, table, new_name):
+    with Database(db_path) as db:
+        db.rename_table(table, new_name)
         print(f"Table {table!r} renamed to {new_name!r}.")
 
 
@@ -661,10 +667,14 @@ def main_rename_table(schema_path, db_path, table, new_name):
 @click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
-def main_reorder_columns(schema_path, db_path, table, columns):
+def main_reorder_columns_wrapper(*args, **kwargs):
     """
     Change the order of columns in a table.
     """
+    main_reorder_columns(*args, **kwargs)
+
+
+def main_reorder_columns(db_path, schema_path, table, columns):
     schema_module = get_schema_module(schema_path)
     with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
         migrator.reorder_columns(table, columns)
@@ -684,24 +694,28 @@ def main_reorder_columns(schema_path, db_path, table, columns):
 @click.option("--offset", default=None, help=OFFSET_HELP)
 @click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
 @click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+def main_search_wrapper(*args, **kwargs):
+    """
+    Shorthand for `list <table> -s <query>`
+    """
+    main_search(*args, **kwargs)
+
+
 def main_search(
     db_path,
     schema_path,
     table,
     query,
     *,
-    where,
-    columns,
-    hide,
-    page,
-    limit,
-    offset,
-    order_by,
-    desc,
+    where="",
+    columns=[],
+    hide=[],
+    page=1,
+    limit=None,
+    offset=None,
+    order_by=[],
+    desc=False,
 ):
-    """
-    Shorthand for `list <table> -s <query>`
-    """
     base_list(
         db_path,
         schema_path,

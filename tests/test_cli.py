@@ -288,6 +288,81 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.assertEqual(mock_stdout.getvalue(), "books\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_rename_column(self, mock_stdout):
+        self.create_table(with_data=True)
+
+        cli.main_rename_column(
+            self.db_file_path, "tests/schema_basic.py", "books", "author", "authors"
+        )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title           authors
+            --------------  ---------------
+            Blood Meridian  Cormac McCarthy
+
+            1 row(s).
+            """
+            ),
+        )
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_rename_table(self, mock_stdout):
+        self.create_table(with_data=True)
+
+        cli.main_rename_table(self.db_file_path, "books", "books_v2")
+        mock_stdout.clear()
+
+        cli.main_list_tables(self.db_file_path)
+        self.assertEqual(mock_stdout.getvalue(), "books_v2\n")
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_reorder_columns(self, mock_stdout):
+        self.create_table(with_data=True)
+
+        cli.main_reorder_columns(
+            self.db_file_path, "tests/schema_basic.py", "books", ["author", "title"]
+        )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            author           title
+            ---------------  --------------
+            Cormac McCarthy  Blood Meridian
+
+            1 row(s).
+            """
+            ),
+        )
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_search(self, mock_stdout):
+        self.create_table(with_data=True)
+        mock_stdout.clear()
+
+        cli.main_search(self.db_file_path, None, "books", "cormac")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title           author
+            --------------  ---------------
+            Blood Meridian  Cormac McCarthy
+
+            1 row(s).
+            """
+            ),
+        )
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_update(self, mock_stdout):
         self.create_table(with_data=True)
 
