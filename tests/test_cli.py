@@ -222,6 +222,14 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_list_tables(self, mock_stdout):
+        self.create_table()
+        mock_stdout.clear()
+
+        cli.main_list_tables(self.db_file_path)
+        self.assertEqual(mock_stdout.getvalue(), "books\n")
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_update(self, mock_stdout):
         self.create_table(with_data=True)
         cli.main_update(

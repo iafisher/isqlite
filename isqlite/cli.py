@@ -447,6 +447,33 @@ def base_list(
             prettyprint_rows(rows, columns=columns, hide=hide, page=page)
 
 
+@cli.command(name="list-tables")
+@click.option("--db", "db_path", envvar="ISQLITE_DB")
+def main_list_tables_wrapper(*args, **kwargs):
+    """
+    List the names of the tables in the database.
+    """
+    main_list_tables(*args, **kwargs)
+
+
+def main_list_tables(db_path):
+    with Database(db_path, readonly=True) as db:
+        rows = db.sql(
+            """
+            SELECT
+              name
+            FROM
+              sqlite_master
+            WHERE
+              type = 'table'
+            AND
+              name NOT LIKE 'sqlite_%'
+            """,
+            as_tuple=True,
+        )
+        print("\n".join(row[0] for row in rows))
+
+
 @cli.command(name="migrate")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
