@@ -5,7 +5,7 @@ import sqlite3
 # Re-export some names from sqliteparser.
 from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
-from .core import AddColumnMigration, AlterColumnMigration
+from .core import AddColumnMigration, AlterColumnMigration, AutoTable
 from .core import BooleanColumnStub as BooleanColumn
 from .core import (
     ColumnDoesNotExistError,

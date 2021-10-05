@@ -182,6 +182,36 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
+    @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_alter_column(self, mock_stdout):
+        self.create_table(with_data=True)
+        cli.main_alter_column(
+            self.db_file_path,
+            "tests/schema_basic.py",
+            "books",
+            "author TEXT NOT NULL DEFAULT 'unknown'",
+        )
+
+        cli.main_create(
+            self.db_file_path, "books", ["title=Beowulf"], auto_timestamp=False
+        )
+        mock_stdout.clear()
+
+        cli.main_list(self.db_file_path, None, "books")
+        self.assertEqual(
+            mock_stdout.getvalue(),
+            S(
+                """
+            title           author
+            --------------  ---------------
+            Blood Meridian  Cormac McCarthy
+            Beowulf         unknown
+
+            2 row(s).
+            """
+            ),
+        )
+
 
 def S(s):
     return textwrap.dedent(s).lstrip("\n")

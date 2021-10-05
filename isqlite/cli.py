@@ -58,15 +58,21 @@ def main_add_column(db_path, table, column):
 
 @cli.command(name="alter-column")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
+@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("column")
-def main_alter_column(db_path, table, column):
+def main_alter_column_wrapper(*args, **kwargs):
     """
     Alter a column's definition.
     """
-    with Database(db_path) as db:
+    return main_alter_column(*args, **kwargs)
+
+
+def main_alter_column(db_path, schema_path, table, column):
+    schema_module = get_schema_module(schema_path)
+    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
         column_name, column_def = column.split(maxsplit=1)
-        db.alter_column(table, column_name, column_def)
+        migrator.alter_column(table, column_name, column_def)
         print(f"Column {column_name!r} altered in table {table!r}.")
 
 

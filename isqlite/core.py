@@ -1313,6 +1313,34 @@ class TableMeta(type):
         x = super().__new__(cls, name, bases, dct)
 
         columns = collections.OrderedDict()
+        to_delete = []
+        for key, value in dct.items():
+            if isinstance(value, ColumnStub):
+                columns[key] = value.cls(key, *value.args, **value.kwargs)
+                to_delete.append(key)
+
+        for key in to_delete:
+            delattr(x, key)
+
+        x.name = snake_case(x.__name__)
+        x.columns = columns
+        return x
+
+
+class Table(metaclass=TableMeta):
+    def __init__(self):
+        raise Exception("Subclasses of Table cannot be instantiated.")
+
+    @classmethod
+    def as_string(cls, row):
+        return str(row["id"])
+
+
+class AutoTableMeta(type):
+    def __new__(cls, name, bases, dct):
+        x = super().__new__(cls, name, bases, dct)
+
+        columns = collections.OrderedDict()
         columns["id"] = IntegerColumn(
             "id",
             required=True,
@@ -1335,9 +1363,9 @@ class TableMeta(type):
         return x
 
 
-class Table(metaclass=TableMeta):
+class AutoTable(metaclass=AutoTableMeta):
     def __init__(self):
-        raise Exception("Subclasses of Table cannot be instantiated.")
+        raise Exception("Subclasses of AutoTable cannot be instantiated.")
 
     @classmethod
     def as_string(cls, row):
@@ -1348,7 +1376,10 @@ def schema_module_to_dict(schema_module):
     return {
         value.name: value
         for value in schema_module.__dict__.values()
-        if isinstance(value, type) and issubclass(value, Table) and value is not Table
+        if isinstance(value, type)
+        and (issubclass(value, Table) or issubclass(value, AutoTable))
+        and value is not Table
+        and value is not AutoTable
     }
 
 

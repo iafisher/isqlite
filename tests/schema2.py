@@ -1,19 +1,19 @@
 from isqlite import (
+    AutoTable,
     BooleanColumn,
     DecimalColumn,
     ForeignKeyColumn,
     IntegerColumn,
-    Table,
     TextColumn,
 )
 
 
-class Departments(Table):
+class Departments(AutoTable):
     name = TextColumn(required=True)
     abbreviation = TextColumn(required=True)
 
 
-class Professors(Table):
+class Professors(AutoTable):
     first_name = TextColumn(required=True)
     last_name = TextColumn(required=True)
     department = ForeignKeyColumn(model="departments", required=True)
@@ -23,7 +23,7 @@ class Professors(Table):
     manager = ForeignKeyColumn(model="professors")
 
 
-class Courses(Table):
+class Courses(AutoTable):
     course_number = IntegerColumn(required=True)
     department = ForeignKeyColumn(model="departments", required=True)
     instructor = ForeignKeyColumn(model="professors", required=True)
@@ -31,7 +31,7 @@ class Courses(Table):
     credits = DecimalColumn(required=True)
 
 
-class Students(Table):
+class Students(AutoTable):
     student_id = IntegerColumn(required=True)
     first_name = TextColumn(required=True)
     last_name = TextColumn(required=True)
