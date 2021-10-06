@@ -110,6 +110,10 @@ def main_create_wrapper(*args, **kwargs):
 
 
 def main_create(db_path, table, payload, *, auto_timestamp=True):
+    if not payload:
+        print("Error: Payload must not be empty.", file=sys.stderr)
+        sys.exit(1)
+
     payload_as_map = {}
     for key_value in payload:
         key, value = key_value.split("=")
@@ -780,6 +784,10 @@ def main_update_wrapper(*args, **kwargs):
 
 
 def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
+    if not payload:
+        print("Error: Payload must not be empty.", file=sys.stderr)
+        sys.exit(1)
+
     payload_as_map = {}
     for key_value in payload:
         key, value = key_value.split("=")
