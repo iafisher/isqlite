@@ -237,20 +237,18 @@ class Database:
 
         return row
 
-    def get_by_rowid(self, table, rowid, **kwargs):
+    def get_by_pk(self, table, pk, **kwargs):
         """
         Retrieve a single row from the database table by its primary key.
 
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
-        :param rowid: The primary key of the row to return.
+        :param pk: The primary key of the row to return.
         :param kwargs: Additional arguments to pass on to `Database.get`.
         """
         pk_column = f"{quote(table)}.rowid"
-        return self.get(
-            table, where=f"{pk_column} = :rowid", values={"rowid": rowid}, **kwargs
-        )
+        return self.get(table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs)
 
     def get_or_create(self, table, data, **kwargs):
         """
@@ -275,7 +273,7 @@ class Database:
         row = self.get(table, where=query, values=data)
         if row is None:
             pk = self.create(table, data, **kwargs)
-            return self.get_by_rowid(table, pk)
+            return self.get_by_pk(table, pk)
         else:
             return row
 
@@ -424,14 +422,14 @@ class Database:
             self.debugger.execute(sql, values)
         self.cursor.execute(sql, values)
 
-    def update_by_rowid(self, table, rowid, data, **kwargs):
+    def update_by_pk(self, table, pk, data, **kwargs):
         """
         Update a single row.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
             attacks.
-        :param rowid: The primary key of the row to update.
+        :param pk: The primary key of the row to update.
         :param data: Same as for `Database.update`.
         :param kwargs: Additional arguments to pass on to `Database.update`.
         """
@@ -439,8 +437,8 @@ class Database:
         return self.update(
             table,
             data,
-            where=f"{pk_column} = :rowid",
-            values={"rowid": rowid},
+            where=f"{pk_column} = :pk",
+            values={"pk": pk},
             **kwargs,
         )
 
@@ -458,19 +456,19 @@ class Database:
         """
         self.sql(f"DELETE FROM {quote(table)} WHERE {where}", values=values)
 
-    def delete_by_rowid(self, table, rowid, **kwargs):
+    def delete_by_pk(self, table, pk, **kwargs):
         """
         Delete a single row.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
             attacks.
-        :param rowid: The primary key of the row to delete.
+        :param pk: The primary key of the row to delete.
         :param kwargs: Additional arguments to pass on to `Database.delete`.
         """
         pk_column = f"{quote(table)}.rowid"
         return self.delete(
-            table, where=f"{pk_column} = :rowid", values={"rowid": rowid}, **kwargs
+            table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs
         )
 
     def sql(self, query, values={}, *, as_tuple=False, multiple=True):

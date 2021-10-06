@@ -194,7 +194,7 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
     with Database(db_path) as db:
         if pk is not None:
             try:
-                row = db.get_by_rowid(table, pk)
+                row = db.get_by_pk(table, pk)
             except Exception:
                 # This can happen, e.g., if a timestamp column is invalidly formatted and
                 # the Python wrapper around sqlite3 chokes trying to convert it to a
@@ -216,7 +216,7 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
                     print("Operation aborted.")
                     sys.exit(1)
 
-            db.delete_by_rowid(table, pk)
+            db.delete_by_pk(table, pk)
             print()
             print(f"Row {pk} deleted from table {table!r}.")
         else:
@@ -331,7 +331,7 @@ def main_get(db_path, schema_path, table, pk):
         schema_module = None
 
     with Database(db_path, readonly=True, schema_module=schema_module) as db:
-        row = db.get_by_rowid(table, pk, get_related=schema_module is not None)
+        row = db.get_by_pk(table, pk, get_related=schema_module is not None)
         for key, value in row.items():
             if isinstance(value, collections.OrderedDict):
                 row[key] = get_column_as_string(schema_dict, table, key, value)
@@ -794,7 +794,7 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
         payload_as_map[key] = value
 
     with Database(db_path) as db:
-        db.update_by_rowid(table, pk, payload_as_map, auto_timestamp=auto_timestamp)
+        db.update_by_pk(table, pk, payload_as_map, auto_timestamp=auto_timestamp)
         print(f"Row {pk} updated.")
 
 
@@ -814,7 +814,7 @@ def main_iupdate(db_path, schema_path, table, pk):
             print(f"Table {table!r} not found.")
             sys.exit(1)
 
-        row = db.get_by_rowid(table, pk)
+        row = db.get_by_pk(table, pk)
         if row is None:
             print(f"Row {pk} not found in table {table!r}.")
             sys.exit(1)
@@ -847,7 +847,7 @@ def main_iupdate(db_path, schema_path, table, pk):
                     updates[column.name] = value
                     break
 
-        db.update_by_rowid(table, pk, updates)
+        db.update_by_pk(table, pk, updates)
         print()
         print(f"Row {pk} updated.")
 

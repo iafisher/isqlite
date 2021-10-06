@@ -147,7 +147,7 @@ class DatabaseTests(unittest.TestCase):
             ],
         )
 
-        department = self.db.get_by_rowid("departments", professor["department"])
+        department = self.db.get_by_pk("departments", professor["department"])
         self.assertEqual(department["name"], "Computer Science")
 
         non_existent = self.db.get("professors", where="first_name = 'Bob'")
@@ -193,18 +193,18 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(ColumnDoesNotExistError):
             self.db.get("students", where="first_name = 'Ursula'", get_related=["nope"])
 
-    def test_get_by_rowid_with_get_related(self):
+    def test_get_by_pk_with_get_related(self):
         # Regression test for https://github.com/iafisher/isqlite/issues/51
-        course = self.db.get_by_rowid("courses", 1, get_related=True)
+        course = self.db.get_by_pk("courses", 1, get_related=True)
         self.assertEqual(course["department"]["name"], "Computer Science")
 
     def test_update_with_pk(self):
         professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])
-        self.db.update_by_rowid(
+        self.db.update_by_pk(
             "professors", professor["id"], {"retired": True}, auto_timestamp=[]
         )
-        professor = self.db.get_by_rowid("professors", professor["id"])
+        professor = self.db.get_by_pk("professors", professor["id"])
         self.assertTrue(professor["retired"])
 
     def test_update_with_query(self):
@@ -223,11 +223,11 @@ class DatabaseTests(unittest.TestCase):
 
         professor["retired"] = True
         time.sleep(0.1)
-        self.db.update_by_rowid(
+        self.db.update_by_pk(
             "professors", professor["id"], professor, auto_timestamp=[]
         )
 
-        updated_professor = self.db.get_by_rowid("professors", professor["id"])
+        updated_professor = self.db.get_by_pk("professors", professor["id"])
         self.assertTrue(updated_professor["retired"])
         self.assertEqual(professor["id"], updated_professor["id"])
 
@@ -429,11 +429,11 @@ class DatabaseTests(unittest.TestCase):
 
         column = 'c"d'
         pk = self.db.create(table, {column: "Lorem ipsum"}, auto_timestamp=[])
-        row = self.db.get_by_rowid(table, pk)
+        row = self.db.get_by_pk(table, pk)
         self.assertEqual(row, {column: "Lorem ipsum"})
 
-        self.db.update_by_rowid(table, pk, {column: ""}, auto_timestamp=[])
-        row = self.db.get_by_rowid(table, pk)
+        self.db.update_by_pk(table, pk, {column: ""}, auto_timestamp=[])
+        row = self.db.get_by_pk(table, pk)
         self.assertEqual(row, {column: ""})
 
     def test_create_table_with_incorrect_arguments(self):
