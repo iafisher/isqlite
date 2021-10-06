@@ -18,14 +18,9 @@ from .core import DecimalColumnStub as DecimalColumn
 from .core import DropColumnMigration, DropTableMigration
 from .core import ForeignKeyColumnStub as ForeignKeyColumn
 from .core import IntegerColumnStub as IntegerColumn
-from .core import (
-    ISqliteApiError,
-    ISqliteError,
-    PrintDebugger,
-    ReorderColumnsMigration,
-    Table,
-    TableDoesNotExistError,
-)
+from .core import ISqliteApiError, ISqliteError
+from .core import PrimaryKeyColumnStub as PrimaryKeyColumn
+from .core import PrintDebugger, ReorderColumnsMigration, Table, TableDoesNotExistError
 from .core import TextColumnStub as TextColumn
 from .core import TimeColumnStub as TimeColumn
 from .core import TimestampColumnStub as TimestampColumn

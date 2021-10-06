@@ -193,6 +193,11 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(ColumnDoesNotExistError):
             self.db.get("students", where="first_name = 'Ursula'", get_related=["nope"])
 
+    def test_get_by_rowid_with_get_related(self):
+        # Regression test for https://github.com/iafisher/isqlite/issues/51
+        course = self.db.get_by_rowid("courses", 1, get_related=True)
+        self.assertEqual(course["department"]["name"], "Computer Science")
+
     def test_update_with_pk(self):
         professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])

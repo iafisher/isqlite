@@ -247,8 +247,9 @@ class Database:
         :param rowid: The primary key of the row to return.
         :param kwargs: Additional arguments to pass on to `Database.get`.
         """
+        pk_column = f"{quote(table)}.rowid"
         return self.get(
-            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+            table, where=f"{pk_column} = :rowid", values={"rowid": rowid}, **kwargs
         )
 
     def get_or_create(self, table, data, **kwargs):
@@ -434,8 +435,13 @@ class Database:
         :param data: Same as for `Database.update`.
         :param kwargs: Additional arguments to pass on to `Database.update`.
         """
+        pk_column = f"{quote(table)}.rowid"
         return self.update(
-            table, data, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+            table,
+            data,
+            where=f"{pk_column} = :rowid",
+            values={"rowid": rowid},
+            **kwargs,
         )
 
     def delete(self, table, *, where, values={}):
@@ -462,8 +468,9 @@ class Database:
         :param rowid: The primary key of the row to delete.
         :param kwargs: Additional arguments to pass on to `Database.delete`.
         """
+        pk_column = f"{quote(table)}.rowid"
         return self.delete(
-            table, where="rowid = :rowid", values={"rowid": rowid}, **kwargs
+            table, where=f"{pk_column} = :rowid", values={"rowid": rowid}, **kwargs
         )
 
     def sql(self, query, values={}, *, as_tuple=False, multiple=True):
@@ -1273,6 +1280,15 @@ class ForeignKeyColumn(BaseColumn):
         return f", foreign key = {self.model}"
 
 
+class PrimaryKeyColumn(IntegerColumn):
+    def __init__(self, name):
+        super().__init__(
+            name,
+            required=True,
+            sql_constraints=[ast.PrimaryKeyConstraint(autoincrement=True)],
+        )
+
+
 class ColumnStub:
     def __init__(self, cls, args, kwargs):
         self.cls = cls
@@ -1289,6 +1305,7 @@ DateColumnStub = make_column_stub_factory(DateColumn)
 DecimalColumnStub = make_column_stub_factory(DecimalColumn)
 ForeignKeyColumnStub = make_column_stub_factory(ForeignKeyColumn)
 IntegerColumnStub = make_column_stub_factory(IntegerColumn)
+PrimaryKeyColumnStub = make_column_stub_factory(PrimaryKeyColumn)
 TextColumnStub = make_column_stub_factory(TextColumn)
 TimeColumnStub = make_column_stub_factory(TimeColumn)
 TimestampColumnStub = make_column_stub_factory(TimestampColumn)
