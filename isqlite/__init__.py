@@ -62,3 +62,9 @@ sqlite3.register_converter("DECIMAL", sqlite3_convert_decimal)
 sqlite3.register_adapter(decimal.Decimal, sqlite3_adapt_decimal)
 sqlite3.register_converter("TIME", sqlite3_convert_time)
 sqlite3.register_adapter(datetime.time, sqlite3_adapt_time)
+
+del sqlite3_convert_boolean
+del sqlite3_convert_decimal
+del sqlite3_adapt_decimal
+del sqlite3_convert_time
+del sqlite3_adapt_time
