@@ -23,14 +23,14 @@ with Database(":memory:") as db:
     pk = db.create("employees", {"name": "John Doe", "age": 30})
 
     # Retrieve the row as an OrderedDict.
-    person = db.get_by_rowid("employees", pk)
+    person = db.get_by_pk("employees", pk)
     print(person["name"], person["age"])
 
     # Update the row.
-    db.update_by_rowid("employees", pk, {"age": 35})
+    db.update_by_pk("employees", pk, {"age": 35})
 
     # Delete the row.
-    db.delete_by_rowid("employees", pk)
+    db.delete_by_pk("employees", pk)
 
     # Filter rows with a query.
     employees = db.list(
