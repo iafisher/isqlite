@@ -547,7 +547,7 @@ class Database:
         """
         self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
 
-    def transaction(self):
+    def transaction(self, *, disable_foreign_keys=False):
         """
         Begin a new transaction in a context manager.
 
@@ -561,8 +561,13 @@ class Database:
                    ...
 
         The return value of this method should be ignored.
+
+        :param disable_foreign_keys: If true, foreign key enforcement will be disabled
+            during the transaction. This is useful during database migrations.
         """
-        return TransactionContextManager(self)
+        return TransactionContextManager(
+            self, disable_foreign_keys=disable_foreign_keys
+        )
 
     def begin_transaction(self):
         """
@@ -622,94 +627,31 @@ class Database:
 
         self.close()
 
-    def _get_related_columns_and_joins(self, table, get_related):
-        table_schema = self.schema[table]
-        if get_related is True:
-            get_related = {
-                column.name
-                for column in table_schema.columns.values()
-                if isinstance(column, ForeignKeyColumn)
-                # Don't fetch recursive relations because this will cause 'ambiguous
-                # column' errors in the SQL query.
-                and column.model != table
-            }
-        else:
-            get_related = set(get_related)
+    def diff(self, schema=None, *, table=None):
+        """
+        Return a list of differences between the Python schema and the actual database
+        schema.
 
-        columns = []
-        joins = []
-        for column in table_schema.columns.values():
-            if column.name in get_related:
-                # Remove the column from the set so that we can check for any
-                # non-existent columns at the end.
-                get_related.remove(column.name)
+        :param schema: The Python schema to use. If None, then the schema the database
+            was initialized with will be used.
+        :param table: The table to diff. If None, the entire database will be diffed.
+        """
+        if schema is None:
+            if self.schema is None:
+                raise ISqliteApiError(
+                    "Database.diff requires either that the database was initialized "
+                    + "with a schema, or an explicit schema was passed as a parameter."
+                )
 
-                if not isinstance(column, ForeignKeyColumn):
-                    raise ISqliteError(
-                        f"{column.name!r} was passed in `get_related`, "
-                        + "but it is not a foreign key column"
-                    )
+            schema = self.schema
 
-                related_table_schema = self.schema[column.model]
-                for related_column in related_table_schema.columns.values():
-                    name = f"{column.name}____{related_column.name}"
-                    columns.append(
-                        f"{quote(column.model)}.{quote(related_column.name)} "
-                        + f"AS {quote(name)}"
-                    )
-
-                joins.append((column.name, column.model))
-            else:
-                columns.append(f"{quote(table)}.{quote(column.name)}")
-
-        # We popped columns from `get_related` as we went, so if there are any left,
-        # they are not valid columns of the table.
-        if get_related:
-            random = get_related.pop()
-            raise ColumnDoesNotExistError(table, random)
-
-        columns = ", ".join(columns)
-        joins = "\n".join(
-            f"LEFT JOIN {quote(join_table)} ON "
-            + f"{quote(table)}.{quote(join_column)} = {quote(join_table)}.id"
-            for join_column, join_table in joins
-        )
-        return columns, joins
-
-
-class TransactionContextManager:
-    def __init__(self, db):
-        self.db = db
-
-    def __enter__(self):
-        self.db.begin_transaction()
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        if exc_type is not None:
-            self.db.rollback()
-        else:
-            self.db.commit()
-
-
-class DatabaseMigrator:
-    def __init__(self, connection_or_db, *args, **kwargs):
-        if isinstance(connection_or_db, Database):
-            self.db = connection_or_db
-        else:
-            self.db = Database(connection_or_db, *args, transaction=False, **kwargs)
-
-        self.schema = self.db.schema
-
-    def diff(self, table=None):
         tables_in_db = {
             row["name"]: row["sql"]
-            for row in self.db.list(
+            for row in self.list(
                 "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
             )
         }
-        tables_in_schema = (
-            self.schema.values() if table is None else [self.schema[table]]
-        )
+        tables_in_schema = schema.values() if table is None else [schema[table]]
 
         diff = collections.defaultdict(list)
         for table_in_schema in tables_in_schema:
@@ -789,73 +731,63 @@ class DatabaseMigrator:
         return diff
 
     def apply_diff(self, diff):
-        for table_diff in diff.values():
-            for op in table_diff:
-                if isinstance(op, CreateTableMigration):
-                    self.create_table(op.table_name, op.columns)
-                elif isinstance(op, DropTableMigration):
-                    self.drop_table(op.table_name)
-                elif isinstance(op, AlterColumnMigration):
-                    self.alter_column(
-                        op.table_name,
-                        op.column.name,
-                        str(op.column.definition)
-                        if op.column.definition is not None
-                        else "",
-                    )
-                elif isinstance(op, AddColumnMigration):
-                    self.add_column(op.table_name, op.column)
-                elif isinstance(op, DropColumnMigration):
-                    self.drop_column(op.table_name, op.column_name)
-                elif isinstance(op, ReorderColumnsMigration):
-                    self.reorder_columns(op.table_name, op.column_names)
-                elif isinstance(op, RenameColumnMigration):
-                    self.rename_column(
-                        op.table_name, op.old_column_name, op.new_column_name
-                    )
-                else:
-                    raise ISqliteError("unknown migration op type")
+        """
+        Apply the diff returned by `Database.diff` to the database.
 
-    def begin(self):
-        # We disable foreign keys before the BEGIN statement because, per the SQLite
-        # docs:
-        #
-        #  foreign key constraint enforcement may only be enabled or disabled when
-        #  there is no pending BEGIN or SAVEPOINT
-        #
-        # Source: https://sqlite.org/pragma.html#pragma_foreign_keys
-        if self.db.in_transaction:
-            raise Exception(
-                "DatabaseMigrator cannot begin while database is in a transaction. "
-                + "Make sure there are no pending BEGIN or SAVEPOINT statements."
-            )
+        WARNING: This may cause columns or entire tables to be dropped from the
+        database. Make sure to examine the diff before applying it, e.g. by using the
+        `isqlite migrate` command.
 
-        self.db.sql("PRAGMA foreign_keys = 0")
-        self.db.sql("BEGIN")
+        The entire operation will occur in a transaction.
 
-    def commit(self):
-        if self.db.in_transaction:
-            self.db.commit()
-        self.db.sql("PRAGMA foreign_keys = 1")
+        :param diff: A list of differences, as returned by `Database.diff`.
+        """
+        with self.transaction(disable_foreign_keys=True):
+            for table_diff in diff.values():
+                for op in table_diff:
+                    if isinstance(op, CreateTableMigration):
+                        self.create_table(op.table_name, op.columns)
+                    elif isinstance(op, DropTableMigration):
+                        self.drop_table(op.table_name)
+                    elif isinstance(op, AlterColumnMigration):
+                        self.alter_column(
+                            op.table_name,
+                            op.column.name,
+                            str(op.column.definition)
+                            if op.column.definition is not None
+                            else "",
+                        )
+                    elif isinstance(op, AddColumnMigration):
+                        self.add_column(op.table_name, op.column)
+                    elif isinstance(op, DropColumnMigration):
+                        self.drop_column(op.table_name, op.column_name)
+                    elif isinstance(op, ReorderColumnsMigration):
+                        self.reorder_columns(op.table_name, op.column_names)
+                    elif isinstance(op, RenameColumnMigration):
+                        self.rename_column(
+                            op.table_name, op.old_column_name, op.new_column_name
+                        )
+                    else:
+                        raise ISqliteError("unknown migration op type")
 
-    def rollback(self):
-        if self.db.in_transaction:
-            self.db.rollback()
-        self.db.sql("PRAGMA foreign_keys = 1")
+    def migrate(self, schema=None):
+        """
+        Migrate the database to match the Python schema.
 
-    def create_table(self, *args, **kwargs):
-        self.db.create_table(*args, **kwargs)
+        WARNING: This may cause columns or entire tables to be dropped from the
+        database.
 
-    def drop_table(self, *args, **kwargs):
-        self.db.drop_table(*args, **kwargs)
+        The entire operation will occur in a transaction.
 
-    def rename_table(self, *args, **kwargs):
-        self.db.rename_table(*args, **kwargs)
-
-    def add_column(self, *args, **kwargs):
-        self.db.add_column(*args, **kwargs)
+        :param schema: The Python schema to use. If None, then the schema the database
+            was initialized with will be used.
+        """
+        self.apply_diff(self.diff(schema))
 
     def drop_column(self, table_name, column_name):
+        """
+        Drop a column from the database.
+        """
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
         # implement it by hand here.
         create_table_statement = self._get_create_table_statement(table_name)
@@ -875,6 +807,14 @@ class DatabaseMigrator:
         self._migrate_table(table_name, columns, select=select)
 
     def reorder_columns(self, table_name, column_names):
+        """
+        Reorder the columns of a database table.
+
+        :param table_name: The table to reorder.
+        :param column_names: The new order of the columns, as a list of strings. The
+            column names must be the same as in the database; otherwise, an exception
+            will be raised.
+        """
         create_table_statement = self._get_create_table_statement(table_name)
         column_map = collections.OrderedDict(
             (c.name, c) for c in create_table_statement.columns
@@ -892,6 +832,14 @@ class DatabaseMigrator:
         )
 
     def alter_column(self, table_name, column_name, new_column):
+        """
+        Alter the definition of a column.
+
+        :param table_name: The table to alter.
+        :param column_name: The column to alter.
+        :param new_column: The new definition of the column, without the name, as a SQL
+            string.
+        """
         create_table_statement = self._get_create_table_statement(table_name)
         columns = []
         altered = False
@@ -912,6 +860,9 @@ class DatabaseMigrator:
         )
 
     def rename_column(self, table_name, old_column_name, new_column_name):
+        """
+        Rename a column.
+        """
         # ALTER TABLE ... RENAME COLUMN is only supported since SQLite version 3.25, so
         # we implement it by hand here.
         create_table_statement = self._get_create_table_statement(table_name)
@@ -941,23 +892,23 @@ class DatabaseMigrator:
         # This procedure is copied from https://sqlite.org/lang_altertable.html
         # Create the new table under a temporary name.
         tmp_table_name = quote(f"isqlite_tmp_{name}")
-        self.db.sql(f"CREATE TABLE {tmp_table_name}({', '.join(columns)})")
+        self.sql(f"CREATE TABLE {tmp_table_name}({', '.join(columns)})")
 
         # Copy over all data from the old table into the new table using the
         # provided SELECT values.
-        self.db.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {quote(name)}")
+        self.sql(f"INSERT INTO {tmp_table_name} SELECT {select} FROM {quote(name)}")
 
         # Drop the old table.
-        self.db.sql(f"DROP TABLE {quote(name)}")
+        self.sql(f"DROP TABLE {quote(name)}")
 
         # Rename the new table to the original name.
-        self.db.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {quote(name)}")
+        self.sql(f"ALTER TABLE {tmp_table_name} RENAME TO {quote(name)}")
 
         # Check that no foreign key constraints have been violated.
-        self.db.sql("PRAGMA foreign_key_check")
+        self.sql("PRAGMA foreign_key_check")
 
     def _get_create_table_statement(self, table_name):
-        sql = self.db.sql(
+        sql = self.sql(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = :table",
             {"table": table_name},
             as_tuple=True,
@@ -965,17 +916,90 @@ class DatabaseMigrator:
         )[0]
         return sqliteparser.parse(sql)[0]
 
+    def _get_related_columns_and_joins(self, table, get_related):
+        table_schema = self.schema[table]
+        if get_related is True:
+            get_related = {
+                column.name
+                for column in table_schema.columns.values()
+                if isinstance(column, ForeignKeyColumn)
+                # Don't fetch recursive relations because this will cause 'ambiguous
+                # column' errors in the SQL query.
+                and column.model != table
+            }
+        else:
+            get_related = set(get_related)
+
+        columns = []
+        joins = []
+        for column in table_schema.columns.values():
+            if column.name in get_related:
+                # Remove the column from the set so that we can check for any
+                # non-existent columns at the end.
+                get_related.remove(column.name)
+
+                if not isinstance(column, ForeignKeyColumn):
+                    raise ISqliteError(
+                        f"{column.name!r} was passed in `get_related`, "
+                        + "but it is not a foreign key column"
+                    )
+
+                related_table_schema = self.schema[column.model]
+                for related_column in related_table_schema.columns.values():
+                    name = f"{column.name}____{related_column.name}"
+                    columns.append(
+                        f"{quote(column.model)}.{quote(related_column.name)} "
+                        + f"AS {quote(name)}"
+                    )
+
+                joins.append((column.name, column.model))
+            else:
+                columns.append(f"{quote(table)}.{quote(column.name)}")
+
+        # We popped columns from `get_related` as we went, so if there are any left,
+        # they are not valid columns of the table.
+        if get_related:
+            random = get_related.pop()
+            raise ColumnDoesNotExistError(table, random)
+
+        columns = ", ".join(columns)
+        joins = "\n".join(
+            f"LEFT JOIN {quote(join_table)} ON "
+            + f"{quote(table)}.{quote(join_column)} = {quote(join_table)}.id"
+            for join_column, join_table in joins
+        )
+        return columns, joins
+
+
+class TransactionContextManager:
+    def __init__(self, db, *, disable_foreign_keys=False):
+        self.db = db
+        self.disable_foreign_keys = disable_foreign_keys
+
     def __enter__(self):
-        self.begin()
-        return self
+        if self.disable_foreign_keys:
+            # We disable foreign keys before the BEGIN statement because, per the SQLite
+            # docs:
+            #
+            #  foreign key constraint enforcement may only be enabled or disabled when
+            #  there is no pending BEGIN or SAVEPOINT
+            #
+            # Source: https://sqlite.org/pragma.html#pragma_foreign_keys
+            if self.db.in_transaction:
+                raise ISqliteError(
+                    "Foreign key enforcement cannot be disabled inside a transaction."
+                )
+            self.db.sql("PRAGMA foreign_keys = 0")
+
+        self.db.begin_transaction()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if exc_type is None:
-            self.commit()
+        if exc_type is not None:
+            self.db.rollback()
         else:
-            self.rollback()
+            self.db.commit()
 
-        self.db.close()
+        self.db.sql("PRAGMA foreign_keys = 1")
 
 
 def ordered_dict_row_factory(cursor, row):

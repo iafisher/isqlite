@@ -3,7 +3,7 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import ColumnDoesNotExistError, Database, DatabaseMigrator, ISqliteError
+from isqlite import ColumnDoesNotExistError, Database, ISqliteError
 
 from . import schema as schema_module
 
@@ -11,11 +11,7 @@ from . import schema as schema_module
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.db = Database(":memory:", schema_module=schema_module, transaction=False)
-
-        self.migrator = DatabaseMigrator(self.db)
-        self.migrator.begin()
-        self.migrator.apply_diff(self.migrator.diff())
-        self.migrator.commit()
+        self.db.migrate()
 
         self.db.begin_transaction()
         cs_department = self.db.create(
@@ -282,9 +278,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(courses[1]["instructor"]["last_name"], "Knuth")
 
     def test_add_column(self):
-        self.migrator.begin()
-        self.migrator.add_column("professors", "year_of_hire INTEGER")
-        self.migrator.commit()
+        self.db.add_column("professors", "year_of_hire INTEGER")
 
         professor = self.db.get("professors")
         self.assertEqual(
@@ -305,9 +299,8 @@ class DatabaseTests(unittest.TestCase):
         self.assertIsNone(professor["year_of_hire"])
 
     def test_drop_column(self):
-        self.migrator.begin()
-        self.migrator.drop_column("professors", "retired")
-        self.migrator.commit()
+        with self.db.transaction(disable_foreign_keys=True):
+            self.db.drop_column("professors", "retired")
 
         professor = self.db.get("professors")
         self.assertEqual(
@@ -326,32 +319,23 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.db.sql("PRAGMA foreign_keys", as_tuple=True)[0][0], 1)
 
     def test_drop_column_with_keyword_name(self):
-        self.migrator.begin()
-        self.migrator.create_table(
-            "test", ["name TEXT", "age INTEGER", '"order" INTEGER']
-        )
-        self.migrator.commit()
+        self.db.create_table("test", ["name TEXT", "age INTEGER", '"order" INTEGER'])
 
         self.db.create("test", {"name": "John Doe", "age": 24}, auto_timestamp=[])
 
-        self.migrator.begin()
-        self.migrator.drop_column("test", "age")
-        self.migrator.commit()
+        self.db.drop_column("test", "age")
 
         self.assertEqual(self.db.get("test"), {"name": "John Doe", "order": None})
 
     def test_drop_column_with_non_existent_column(self):
         with self.assertRaises(ColumnDoesNotExistError):
-            self.migrator.begin()
-            self.migrator.drop_column("students", "dormitory")
-            self.migrator.commit()
+            self.db.drop_column("students", "dormitory")
 
     def test_alter_column(self):
         professor_before = self.db.get("professors")
 
-        self.migrator.begin()
-        self.migrator.alter_column("professors", "tenured", "INTEGER NOT NULL")
-        self.migrator.commit()
+        with self.db.transaction(disable_foreign_keys=True):
+            self.db.alter_column("professors", "tenured", "INTEGER NOT NULL")
 
         professor_after = self.db.get("professors")
         # This assertion is a little tricky, because True == 1 and isinstance(True, int)
@@ -369,16 +353,13 @@ class DatabaseTests(unittest.TestCase):
 
     def test_alter_column_with_non_existent_column(self):
         with self.assertRaises(ColumnDoesNotExistError):
-            self.migrator.begin()
-            self.migrator.alter_column("students", "dormitory", "TEXT NOT NULL")
-            self.migrator.commit()
+            self.db.alter_column("students", "dormitory", "TEXT NOT NULL")
 
     def test_rename_column(self):
         professor_before = self.db.get("professors")
 
-        self.migrator.begin()
-        self.migrator.rename_column("professors", "tenured", "is_tenured")
-        self.migrator.commit()
+        with self.db.transaction(disable_foreign_keys=True):
+            self.db.rename_column("professors", "tenured", "is_tenured")
 
         professor_after = self.db.get("professors")
         self.assertNotIn("tenured", professor_after)
@@ -390,9 +371,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_rename_column_with_non_existent_column(self):
         with self.assertRaises(ColumnDoesNotExistError):
-            self.migrator.begin()
-            self.migrator.alter_column("students", "dormitory", "dormitory_name")
-            self.migrator.commit()
+            self.db.alter_column("students", "dormitory", "dormitory_name")
 
     def test_reorder_columns(self):
         # We convert the rows to a regular dictionary because the OrderedDicts won't
@@ -400,9 +379,8 @@ class DatabaseTests(unittest.TestCase):
         before = [dict(row) for row in self.db.list("departments", order_by="name")]
 
         reordered = ["id", "abbreviation", "name", "created_at", "last_updated_at"]
-        self.migrator.begin()
-        self.migrator.reorder_columns("departments", reordered)
-        self.migrator.commit()
+        with self.db.transaction(disable_foreign_keys=True):
+            self.db.reorder_columns("departments", reordered)
 
         self.assertEqual(list(self.db.get("departments").keys()), reordered)
         after = [dict(row) for row in self.db.list("departments", order_by="name")]
@@ -410,18 +388,15 @@ class DatabaseTests(unittest.TestCase):
 
     def test_cannot_modify_read_only_database(self):
         db = Database(":memory:", readonly=True)
-        migrator = DatabaseMigrator(db)
         with self.assertRaises(sqlite3.OperationalError):
-            migrator.create_table(
+            db.create_table(
                 "people",
                 ["name TEXT NOT NULL"],
             )
 
     def test_create_table_with_quoted_name(self):
         table = 'a"b'
-        self.migrator.begin()
-        self.migrator.create_table(table, ['"c""d" TEXT NOT NULL'])
-        self.migrator.commit()
+        self.db.create_table(table, ['"c""d" TEXT NOT NULL'])
 
         self.assertEqual(self.db.count(table), 0)
         self.assertEqual(self.db.get(table), None)
@@ -438,7 +413,5 @@ class DatabaseTests(unittest.TestCase):
 
     def test_create_table_with_incorrect_arguments(self):
         with self.assertRaises(ISqliteError):
-            self.migrator.begin()
             # The second argument should be a list, not a string.
-            self.migrator.create_table("test_table", "name TEXT NOT NULL")
-            self.migrator.commit()
+            self.db.create_table("test_table", "name TEXT NOT NULL")

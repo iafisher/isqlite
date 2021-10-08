@@ -7,12 +7,7 @@ from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
 from .core import AddColumnMigration, AlterColumnMigration, AutoTable
 from .core import BooleanColumnStub as BooleanColumn
-from .core import (
-    ColumnDoesNotExistError,
-    CreateTableMigration,
-    Database,
-    DatabaseMigrator,
-)
+from .core import ColumnDoesNotExistError, CreateTableMigration, Database
 from .core import DateColumnStub as DateColumn
 from .core import DecimalColumnStub as DecimalColumn
 from .core import DropColumnMigration, DropTableMigration

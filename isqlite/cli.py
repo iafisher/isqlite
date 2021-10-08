@@ -21,7 +21,6 @@ from tabulate import tabulate
 from .core import (
     CreateTableMigration,
     Database,
-    DatabaseMigrator,
     DropTableMigration,
     schema_module_to_dict,
 )
@@ -79,9 +78,9 @@ def main_alter_column_wrapper(*args, **kwargs):
 
 def main_alter_column(db_path, schema_path, table, column):
     schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
+    with Database(db_path, schema_module=schema_module) as db:
         column_name, column_def = column.split(maxsplit=1)
-        migrator.alter_column(table, column_name, column_def)
+        db.alter_column(table, column_name, column_def)
         print(f"Column {column_name!r} altered in table {table!r}.")
 
 
@@ -273,8 +272,8 @@ def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
                 print("Operation aborted.")
                 sys.exit(1)
 
-    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
-        migrator.drop_column(table, column)
+    with Database(db_path, schema_module=schema_module) as db:
+        db.drop_column(table, column)
         print()
         print(f"Column {column!r} dropped from table {table!r}.")
 
@@ -543,10 +542,14 @@ def main_migrate_wrapper(*args, **kwargs):
 
 def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
     schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(
-        db_path, schema_module=schema_module, readonly=not write, debugger=debug
-    ) as migrator:
-        diff = migrator.diff(table)
+    with Database(
+        db_path,
+        schema_module=schema_module,
+        readonly=not write,
+        transaction=False,
+        debugger=debug,
+    ) as db:
+        diff = db.diff(table=table)
         if not diff:
             print("Nothing to migrate - database matches schema.")
             return
@@ -581,7 +584,7 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
 
         if write:
             try:
-                migrator.apply_diff(diff)
+                db.apply_diff(diff)
             except Exception:
                 traceback.print_exc()
 
@@ -644,8 +647,8 @@ def main_rename_column_wrapper(*args, **kwargs):
 
 def main_rename_column(db_path, schema_path, table, old_name, new_name):
     schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
-        migrator.rename_column(table, old_name, new_name)
+    with Database(db_path, schema_module=schema_module) as db:
+        db.rename_column(table, old_name, new_name)
         print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
 
 
@@ -680,8 +683,8 @@ def main_reorder_columns_wrapper(*args, **kwargs):
 
 def main_reorder_columns(db_path, schema_path, table, columns):
     schema_module = get_schema_module(schema_path)
-    with DatabaseMigrator(db_path, schema_module=schema_module) as migrator:
-        migrator.reorder_columns(table, columns)
+    with Database(db_path, schema_module=schema_module) as db:
+        db.reorder_columns(table, columns)
         print(f"Columns of table {table!r} reordered.")
 
 
