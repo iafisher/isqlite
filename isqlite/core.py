@@ -1344,19 +1344,18 @@ def check_operator_constraint(name, operator, value):
 
 
 class Table:
-    def __init__(self, name, columns):
+    def __init__(self, name, columns, *, as_string=None):
         self.name = name
         self.columns = collections.OrderedDict(
             (column.name, column) for column in columns
         )
-
-    @classmethod
-    def as_string(cls, row):
-        return str(row["id"])
+        self.as_string = (
+            as_string if as_string is not None else lambda row: str(row["id"])
+        )
 
 
 class AutoTable(Table):
-    def __init__(self, name, columns):
+    def __init__(self, name, columns, **kwargs):
         id_column = IntegerColumn(
             "id",
             required=True,
@@ -1365,7 +1364,7 @@ class AutoTable(Table):
         created_at_column = TimestampColumn("created_at", required=True)
         last_updated_at_column = TimestampColumn("last_updated_at", required=True)
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
-        super().__init__(name, columns)
+        super().__init__(name, columns, **kwargs)
 
 
 def convert_default(default):
