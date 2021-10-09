@@ -9,9 +9,9 @@ import sqliteparser
 from attr import attrib, attrs
 from sqliteparser import ast, quote
 
-CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
-AUTO_TIMESTAMP = ("created_at", "last_updated_at")
-AUTO_TIMESTAMP_UPDATE_ONLY = ("last_updated_at",)
+CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
+AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
+AUTO_TIMESTAMP_UPDATE_DEFAULT = ("last_updated_at",)
 
 
 # Sentinel object to detect keyword arguments that were not specified by the caller.
@@ -313,7 +313,7 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+    def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP_DEFAULT):
         """
         Insert a new row.
 
@@ -328,7 +328,7 @@ class Database:
         if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
         elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP
+            auto_timestamp = AUTO_TIMESTAMP_DEFAULT
 
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
@@ -337,7 +337,7 @@ class Database:
         extra = []
         for timestamp_column in auto_timestamp:
             keys.append(timestamp_column)
-            extra.append(CURRENT_TIMESTAMP)
+            extra.append(CURRENT_TIMESTAMP_SQL)
 
         if extra:
             extra = (", " if data else "") + ", ".join(extra)
@@ -353,7 +353,7 @@ class Database:
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP):
+    def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP_DEFAULT):
         """
         Insert multiple rows at once.
 
@@ -367,7 +367,7 @@ class Database:
         if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
         elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP
+            auto_timestamp = AUTO_TIMESTAMP_DEFAULT
 
         if not data:
             return
@@ -378,7 +378,7 @@ class Database:
         extra = []
         for timestamp_column in auto_timestamp:
             keys.append(timestamp_column)
-            extra.append(CURRENT_TIMESTAMP)
+            extra.append(CURRENT_TIMESTAMP_SQL)
 
         if extra:
             extra = (", " if data else "") + ", ".join(extra)
@@ -401,7 +401,7 @@ class Database:
         *,
         where=None,
         values={},
-        auto_timestamp=AUTO_TIMESTAMP_UPDATE_ONLY,
+        auto_timestamp=AUTO_TIMESTAMP_UPDATE_DEFAULT,
     ):
         """
         Update an existing row.
@@ -418,7 +418,7 @@ class Database:
         if auto_timestamp is None or auto_timestamp is False:
             auto_timestamp = []
         elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP_UPDATE_ONLY
+            auto_timestamp = AUTO_TIMESTAMP_UPDATE_DEFAULT
 
         updates = []
         for key, value in data.items():
@@ -430,7 +430,7 @@ class Database:
             updates.append(f"{quote(key)} = :{placeholder}")
 
         for timestamp_column in auto_timestamp:
-            updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP}")
+            updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP_SQL}")
 
         updates = ", ".join(updates)
         where_clause = f"WHERE {where}" if where else ""
