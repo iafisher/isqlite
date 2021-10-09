@@ -16,16 +16,21 @@ AUTO_TIMESTAMP = ("created_at", "last_updated_at")
 AUTO_TIMESTAMP_UPDATE_ONLY = ("last_updated_at",)
 
 
+# Sentinel object to detect keyword arguments that were not specified by the caller.
+_Unset = object()
+
+
 class Database:
     def __init__(
         self,
         path,
         *,
+        schema_module=None,
         transaction=True,
         debugger=None,
         readonly=None,
         uri=False,
-        schema_module=None,
+        cached_statements=_Unset,
     ):
         """
         Initialize a ``Database`` object.
@@ -37,6 +42,9 @@ class Database:
 
         :param path: The path to the database file. You may pass ``":memory"`` for an
             in-memory database.
+        :param schema_module: A module containing a Python schema for the database. The
+            schema is optional, but is required for certain features, such as the
+            ``get_related`` parameter of ``Database.get`` and ``Database.list``.
         :param transaction: If true, a transaction is automatically opened with BEGIN.
             When the ``Database`` class is used in a ``with`` statement, the transaction
             will be committed at the end (or rolled back if an exception occurs), so
@@ -65,9 +73,7 @@ class Database:
             append ``?mode=ro`` to make it read-only.
         :param uri: If true, the ``path`` argument is interpreted as a URI rather than a
             file path.
-        :param schema_module: A module containing a Python schema for the database. The
-            schema is optional, but is required for certain features, such as the
-            ``get_related`` parameter of ``Database.get`` and ``Database.list``.
+        :param cached_statements: Passed on to ``sqlite3.connect``.
         """
         # Validate arguments.
         if readonly is not None:
@@ -87,14 +93,24 @@ class Database:
             else:
                 path = f"file:{path}"
 
-        # Setting `isolation_level` to None disables quirky behavior around
-        # transactions, per https://stackoverflow.com/questions/30760997/
-        self.connection = sqlite3.connect(
-            path,
+        # We have to do this instead of passing the keyword arguments directly to
+        # `sqlite3.connect` because we conditionally pass `cached_statements` if the
+        # caller of `Database.__init__` gave it an explicit value.
+        #
+        # We _could_ use the current `sqlite3` default of 100 as the default value of
+        # the argument, but then if `sqlite3` ever changed its default, `isqlite` would
+        # have to be updated.
+        kwargs = dict(
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
             uri=True,
             isolation_level=None,
         )
+        if cached_statements is not _Unset:
+            kwargs["cached_statements"] = cached_statements
+
+        # Setting `isolation_level` to None disables quirky behavior around
+        # transactions, per https://stackoverflow.com/questions/30760997/
+        self.connection = sqlite3.connect(path, **kwargs)
 
         if debugger is True:
             debugger = PrintDebugger()
