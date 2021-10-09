@@ -9,8 +9,6 @@ import sqliteparser
 from attr import attrib, attrs
 from sqliteparser import ast, quote
 
-from .utils import StringBuilder, snake_case
-
 CURRENT_TIMESTAMP = "STRFTIME('%Y-%m-%d %H:%M:%f000+00:00', 'now')"
 AUTO_TIMESTAMP = ("created_at", "last_updated_at")
 AUTO_TIMESTAMP_UPDATE_ONLY = ("last_updated_at",)
@@ -25,7 +23,7 @@ class Database:
         self,
         path,
         *,
-        schema_module=None,
+        schema=None,
         transaction=True,
         debugger=None,
         readonly=None,
@@ -42,9 +40,9 @@ class Database:
 
         :param path: The path to the database file. You may pass ``":memory"`` for an
             in-memory database.
-        :param schema_module: A module containing a Python schema for the database. The
-            schema is optional, but is required for certain features, such as the
-            ``get_related`` parameter of ``Database.get`` and ``Database.list``.
+        :param schema: A list of ``Table`` objects describing the schema of the
+            database. The schema is optional, but is required for certain features, such
+            as the ``get_related`` parameter of ``Database.get`` and ``Database.list``.
         :param transaction: If true, a transaction is automatically opened with BEGIN.
             When the ``Database`` class is used in a ``with`` statement, the transaction
             will be committed at the end (or rolled back if an exception occurs), so
@@ -117,7 +115,9 @@ class Database:
         self.debugger = debugger
 
         self.schema = (
-            schema_module_to_dict(schema_module) if schema_module is not None else None
+            collections.OrderedDict((table.name, table) for table in schema)
+            if schema is not None
+            else None
         )
 
         self.connection.row_factory = ordered_dict_row_factory
@@ -164,7 +164,7 @@ class Database:
         :param get_related: A list of foreign-key columns of the table to be retrieved
             and embedded into the returned dictionaries. If true, all foreign-key
             columns will be retrieved. This parameter requires that ``Database`` was
-            initialized with a ``schema_module`` parameter.
+            initialized with a ``schema`` parameter.
         """
         if order_by:
             if isinstance(order_by, (tuple, list)):
@@ -1329,28 +1329,6 @@ class PrimaryKeyColumn(IntegerColumn):
         )
 
 
-class ColumnStub:
-    def __init__(self, cls, args, kwargs):
-        self.cls = cls
-        self.args = args
-        self.kwargs = kwargs
-
-
-def make_column_stub_factory(cls):
-    return lambda *args, **kwargs: ColumnStub(cls, args, kwargs)
-
-
-BooleanColumnStub = make_column_stub_factory(BooleanColumn)
-DateColumnStub = make_column_stub_factory(DateColumn)
-DecimalColumnStub = make_column_stub_factory(DecimalColumn)
-ForeignKeyColumnStub = make_column_stub_factory(ForeignKeyColumn)
-IntegerColumnStub = make_column_stub_factory(IntegerColumn)
-PrimaryKeyColumnStub = make_column_stub_factory(PrimaryKeyColumn)
-TextColumnStub = make_column_stub_factory(TextColumn)
-TimeColumnStub = make_column_stub_factory(TimeColumn)
-TimestampColumnStub = make_column_stub_factory(TimestampColumn)
-
-
 def not_null_constraint():
     return ast.NotNullConstraint()
 
@@ -1365,80 +1343,29 @@ def check_operator_constraint(name, operator, value):
     )
 
 
-class TableMeta(type):
-    def __new__(cls, name, bases, dct):
-        x = super().__new__(cls, name, bases, dct)
-
-        columns = collections.OrderedDict()
-        to_delete = []
-        for key, value in dct.items():
-            if isinstance(value, ColumnStub):
-                columns[key] = value.cls(key, *value.args, **value.kwargs)
-                to_delete.append(key)
-
-        for key in to_delete:
-            delattr(x, key)
-
-        x.name = snake_case(x.__name__)
-        x.columns = columns
-        return x
-
-
-class Table(metaclass=TableMeta):
-    def __init__(self):
-        raise Exception("Subclasses of Table cannot be instantiated.")
+class Table:
+    def __init__(self, name, columns):
+        self.name = name
+        self.columns = collections.OrderedDict(
+            (column.name, column) for column in columns
+        )
 
     @classmethod
     def as_string(cls, row):
         return str(row["id"])
 
 
-class AutoTableMeta(type):
-    def __new__(cls, name, bases, dct):
-        # TODO(2021-10-05): Factor out shared code with `TableMeta` class.
-        x = super().__new__(cls, name, bases, dct)
-
-        columns = collections.OrderedDict()
-        columns["id"] = IntegerColumn(
+class AutoTable(Table):
+    def __init__(self, name, columns):
+        id_column = IntegerColumn(
             "id",
             required=True,
             sql_constraints=[ast.PrimaryKeyConstraint(autoincrement=True)],
         )
-        to_delete = []
-        for key, value in dct.items():
-            if isinstance(value, ColumnStub):
-                columns[key] = value.cls(key, *value.args, **value.kwargs)
-                to_delete.append(key)
-
-        for key in to_delete:
-            delattr(x, key)
-
-        columns["created_at"] = TimestampColumn("created_at", required=True)
-        columns["last_updated_at"] = TimestampColumn("last_updated_at", required=True)
-
-        x.name = snake_case(x.__name__)
-        x.columns = columns
-        return x
-
-
-class AutoTable(metaclass=AutoTableMeta):
-    def __init__(self):
-        raise Exception("Subclasses of AutoTable cannot be instantiated.")
-
-    @classmethod
-    def as_string(cls, row):
-        return str(row["id"])
-
-
-def schema_module_to_dict(schema_module):
-    return {
-        value.name: value
-        for value in schema_module.__dict__.values()
-        if isinstance(value, type)
-        and (issubclass(value, Table) or issubclass(value, AutoTable))
-        and value is not Table
-        and value is not AutoTable
-    }
+        created_at_column = TimestampColumn("created_at", required=True)
+        last_updated_at_column = TimestampColumn("last_updated_at", required=True)
+        columns = [id_column] + columns + [created_at_column, last_updated_at_column]
+        super().__init__(name, columns)
 
 
 def convert_default(default):
@@ -1533,6 +1460,17 @@ class PrintDebugger:
         print(textwrap.indent(f"Values: {values!r}", "  "))
         print()
         print("=== END SQL DEBUGGER ===")
+
+
+class StringBuilder:
+    def __init__(self):
+        self.parts = []
+
+    def text(self, s):
+        self.parts.append(s)
+
+    def build(self):
+        return "".join(self.parts)
 
 
 class ISqliteError(Exception):

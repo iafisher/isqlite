@@ -57,19 +57,27 @@ with Database(":memory:") as db:
 
 ### Database migrations
 #### Automated
-In `schema.py` (the exact name of the file does not matter):
+In `schema.py` (the exact name of the file does not matter, but for the command-line tool to work the schema must be defined in a variable called `SCHEMA`):
 
 ```python
 from base.sql import ForeignKeyColumn, IntegerColumn, Table, TextColumn
 
-class Book(Table):
-    title = TextColumn(required=True)
-    author = ForeignKeyColumn(model="authors", required=True)
-    pages = IntegerColumn(required=False)
-
-
-class Authors(Table):
-    name = TextColumn(required=True)
+SCHEMA = [
+    Table(
+        "books",
+        columns=[
+            TextColumn("title", required=True),
+            ForeignKeyColumn("author", model="authors", required=True),
+            IntegerColumn("pages", required=False),
+        ],
+    ),
+    Table(
+        "authors",
+        columns=[
+            TextColumn("name", required=True),
+        ],
+    ),
+]
 ```
 
 On the command-line (assuming your database is in `db.sqlite3`):

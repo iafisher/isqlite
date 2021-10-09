@@ -18,12 +18,7 @@ import traceback
 import click
 from tabulate import tabulate
 
-from .core import (
-    CreateTableMigration,
-    Database,
-    DropTableMigration,
-    schema_module_to_dict,
-)
+from .core import CreateTableMigration, Database, DropTableMigration
 
 # Help strings used in multiple places.
 COLUMNS_HELP = "Only display these columns in the results."
@@ -77,8 +72,8 @@ def main_alter_column_wrapper(*args, **kwargs):
 
 
 def main_alter_column(db_path, schema_path, table, column):
-    schema_module = get_schema_module(schema_path)
-    with Database(db_path, schema_module=schema_module) as db:
+    schema = get_schema_from_path(schema_path)
+    with Database(db_path, schema=schema) as db:
         column_name, column_def = column.split(maxsplit=1)
         db.alter_column(table, column_name, column_def)
         print(f"Column {column_name!r} altered in table {table!r}.")
@@ -131,15 +126,15 @@ def main_icreate(db_path, schema_path, table):
     """
     Create a new row interactively.
     """
-    full_schema = get_schema_dict(schema_path)
+    schema = get_schema_map_from_path(schema_path)
     with Database(db_path) as db:
-        schema = full_schema.get(table)
-        if schema is None:
+        table_schema = schema.get(table)
+        if table_schema is None:
             print(f"Table {table!r} not found in schema.")
             sys.exit(1)
 
         payload = {}
-        for column in schema.columns.values():
+        for column in table_schema.columns.values():
             if column.name in ("id", "created_at", "last_updated_at"):
                 continue
 
@@ -260,7 +255,7 @@ def main_drop_column_wrapper(*args, **kwargs):
 
 
 def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
-    schema_module = get_schema_module(schema_path)
+    schema = get_schema_from_path(schema_path)
     if not no_confirm:
         with Database(db_path) as db:
             count = db.count(table)
@@ -272,7 +267,7 @@ def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
                 print("Operation aborted.")
                 sys.exit(1)
 
-    with Database(db_path, schema_module=schema_module) as db:
+    with Database(db_path, schema=schema) as db:
         db.drop_column(table, column)
         print()
         print(f"Column {column!r} dropped from table {table!r}.")
@@ -324,16 +319,16 @@ def main_get_wrapper(*args, **kwargs):
 
 def main_get(db_path, schema_path, table, pk):
     if schema_path:
-        schema_module = get_schema_module(schema_path)
-        schema_dict = schema_module_to_dict(schema_module)
+        schema = get_schema_from_path(schema_path)
+        schema_map = schema_to_map(schema)
     else:
-        schema_module = None
+        schema = None
 
-    with Database(db_path, readonly=True, schema_module=schema_module) as db:
-        row = db.get_by_pk(table, pk, get_related=schema_module is not None)
+    with Database(db_path, readonly=True, schema=schema) as db:
+        row = db.get_by_pk(table, pk, get_related=schema is not None)
         for key, value in row.items():
             if isinstance(value, collections.OrderedDict):
-                row[key] = get_column_as_string(schema_dict, table, key, value)
+                row[key] = get_column_as_string(schema_map, table, key, value)
 
         if row is None:
             print(f"Row {pk} not found in table {table!r}.")
@@ -411,12 +406,12 @@ def base_list(
     Base implementation shared by `main_list` and `main_search`
     """
     if schema_path:
-        schema_module = get_schema_module(schema_path)
-        schema_dict = schema_module_to_dict(schema_module)
+        schema = get_schema_from_path(schema_path)
+        schema_map = schema_to_map(schema)
     else:
-        schema_module = None
+        schema = None
 
-    with Database(db_path, readonly=True, schema_module=schema_module) as db:
+    with Database(db_path, readonly=True, schema=schema) as db:
         try:
             rows = db.list(
                 table,
@@ -426,7 +421,7 @@ def base_list(
                 offset=offset,
                 descending=desc if order_by else None,
                 # `get_related` is only possible when the database has a schema.
-                get_related=schema_module is not None,
+                get_related=schema is not None,
             )
         except sqlite3.OperationalError:
             # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
@@ -445,7 +440,7 @@ def base_list(
         for row in rows:
             for key, value in row.items():
                 if isinstance(value, collections.OrderedDict):
-                    row[key] = get_column_as_string(schema_dict, table, key, value)
+                    row[key] = get_column_as_string(schema_map, table, key, value)
 
         if search:
             search = search.lower()
@@ -541,10 +536,10 @@ def main_migrate_wrapper(*args, **kwargs):
 
 
 def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
-    schema_module = get_schema_module(schema_path)
+    schema = get_schema_from_path(schema_path)
     with Database(
         db_path,
-        schema_module=schema_module,
+        schema=schema,
         readonly=not write,
         transaction=False,
         debugger=debug,
@@ -646,8 +641,8 @@ def main_rename_column_wrapper(*args, **kwargs):
 
 
 def main_rename_column(db_path, schema_path, table, old_name, new_name):
-    schema_module = get_schema_module(schema_path)
-    with Database(db_path, schema_module=schema_module) as db:
+    schema = get_schema_from_path(schema_path)
+    with Database(db_path, schema=schema) as db:
         db.rename_column(table, old_name, new_name)
         print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
 
@@ -682,8 +677,8 @@ def main_reorder_columns_wrapper(*args, **kwargs):
 
 
 def main_reorder_columns(db_path, schema_path, table, columns):
-    schema_module = get_schema_module(schema_path)
-    with Database(db_path, schema_module=schema_module) as db:
+    schema = get_schema_from_path(schema_path)
+    with Database(db_path, schema=schema) as db:
         db.reorder_columns(table, columns)
         print(f"Columns of table {table!r} reordered.")
 
@@ -810,10 +805,10 @@ def main_iupdate(db_path, schema_path, table, pk):
     """
     Update an existing row interactively.
     """
-    full_schema = get_schema_dict(schema_path)
+    schema = get_schema_map_from_path(schema_path)
     with Database(db_path) as db:
-        schema = full_schema.get(table)
-        if schema is None:
+        table_schema = schema.get(table)
+        if table_schema is None:
             print(f"Table {table!r} not found.")
             sys.exit(1)
 
@@ -827,7 +822,7 @@ def main_iupdate(db_path, schema_path, table, pk):
         print()
 
         updates = {}
-        for column in schema.columns.values():
+        for column in table_schema.columns.values():
             if column.name in ("id", "created_at", "last_updated_at"):
                 continue
 
@@ -909,21 +904,27 @@ def should_show_column(key, columns, hide):
     return True
 
 
-def get_column_as_string(schema, base_table, column_name, column_value):
-    base_table_def = schema[base_table]
-    table = schema[base_table_def.columns[column_name].model]
+def get_column_as_string(schema_map, base_table, column_name, column_value):
+    base_table_def = schema_map[base_table]
+    table = schema_map[base_table_def.columns[column_name].model]
     return table.as_string(column_value)
 
 
-def get_schema_module(schema_path):
+def get_schema_from_path(schema_path):
     if schema_path is None:
         return None
 
     spec = importlib.util.spec_from_file_location("schema", schema_path)
     schema_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(schema_module)
-    return schema_module
+    return schema_module.SCHEMA
 
 
-def get_schema_dict(schema_path):
-    return schema_module_to_dict(get_schema_module(schema_path))
+def get_schema_map_from_path(schema_path):
+    return schema_to_map(get_schema_from_path(schema_path))
+
+
+def schema_to_map(schema):
+    if schema is None:
+        return {}
+    return collections.OrderedDict((table.name, table) for table in schema)

@@ -5,21 +5,31 @@ import sqlite3
 # Re-export some names from sqliteparser.
 from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
-from .core import AddColumnMigration, AlterColumnMigration, AutoTable
-from .core import BooleanColumnStub as BooleanColumn
-from .core import ColumnDoesNotExistError, CreateTableMigration, Database
-from .core import DateColumnStub as DateColumn
-from .core import DecimalColumnStub as DecimalColumn
-from .core import DropColumnMigration, DropTableMigration
-from .core import ForeignKeyColumnStub as ForeignKeyColumn
-from .core import IntegerColumnStub as IntegerColumn
-from .core import ISqliteApiError, ISqliteError
-from .core import PrimaryKeyColumnStub as PrimaryKeyColumn
-from .core import PrintDebugger, ReorderColumnsMigration, Table, TableDoesNotExistError
-from .core import TextColumnStub as TextColumn
-from .core import TimeColumnStub as TimeColumn
-from .core import TimestampColumnStub as TimestampColumn
-from .core import schema_module_to_dict
+from .core import (
+    AddColumnMigration,
+    AlterColumnMigration,
+    AutoTable,
+    BooleanColumn,
+    ColumnDoesNotExistError,
+    CreateTableMigration,
+    Database,
+    DateColumn,
+    DecimalColumn,
+    DropColumnMigration,
+    DropTableMigration,
+    ForeignKeyColumn,
+    IntegerColumn,
+    ISqliteApiError,
+    ISqliteError,
+    PrimaryKeyColumn,
+    PrintDebugger,
+    ReorderColumnsMigration,
+    Table,
+    TableDoesNotExistError,
+    TextColumn,
+    TimeColumn,
+    TimestampColumn,
+)
 
 
 def sqlite3_convert_boolean(b):

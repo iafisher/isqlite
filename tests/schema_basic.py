@@ -1,6 +1,11 @@
 from isqlite import Table, TextColumn
 
-
-class Books(Table):
-    title = TextColumn()
-    author = TextColumn()
+SCHEMA = [
+    Table(
+        "books",
+        columns=[
+            TextColumn("title"),
+            TextColumn("author"),
+        ],
+    )
+]

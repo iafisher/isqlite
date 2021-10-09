@@ -5,12 +5,12 @@ import unittest
 
 from isqlite import ColumnDoesNotExistError, Database, ISqliteError
 
-from . import schema as schema_module
+from .schema import SCHEMA
 
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
-        self.db = Database(":memory:", schema_module=schema_module, transaction=False)
+        self.db = Database(":memory:", schema=SCHEMA, transaction=False)
         self.db.migrate()
 
         self.db.begin_transaction()
