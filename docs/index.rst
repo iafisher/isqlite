@@ -17,12 +17,6 @@ Welcome to isqlite's documentation!
     :member-order: bysource
 
 
-.. autoclass:: isqlite.DatabaseMigrator
-    :members:
-    :special-members: __init__
-    :member-order: bysource
-
-
 Indices and tables
 ==================
 
