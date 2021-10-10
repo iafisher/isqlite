@@ -19,6 +19,27 @@ _Unset = object()
 
 
 class Database:
+    """
+    A class to represent a connection to a SQLite database. Typically used as a context
+    manager::
+
+        with Database("db.sqlite3") as db:
+            ...
+
+    On creation, the ``Database`` connection will open a SQL transaction which will be
+    either committed or rolled back by the context manager, depending on whether an
+    exception occurs.
+
+    You can also use multiple transactions over the life of the connection::
+
+        with Database("db.sqlite3", transaction=False) as db:
+            with db.transaction():
+                ...
+
+            with db.transaction():
+                ...
+    """
+
     def __init__(
         self,
         path,
@@ -32,11 +53,6 @@ class Database:
     ):
         """
         Initialize a ``Database`` object.
-
-        Typical usage::
-
-            with Database("db.sqlite3") as db:
-                ...
 
         :param path: The path to the database file. You may pass ``":memory"`` for an
             in-memory database.
