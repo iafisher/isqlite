@@ -21,21 +21,21 @@ from tabulate import tabulate
 from .core import CreateTableMigration, Database, DropTableMigration
 
 # Help strings used in multiple places.
-COLUMNS_HELP = "Only display these columns in the results."
-HIDE_HELP = "Hide these columns in the results."
-PAGE_HELP = (
-    "Select the page of results to show, "
-    + "if the table is too wide to display in one screen."
-)
-LIMIT_HELP = "Limit the number of rows returned from the database."
-OFFSET_HELP = "Offset a query with --limit."
-ORDER_BY_HELP = "Order the results by one or more columns."
-DESC_HELP = (
+HELP_COLUMNS = "Only display these columns in the results."
+HELP_DESC = (
     "When combined with --order-by, order the results in descending rather than "
     + "ascending order."
 )
-NO_CONFIRM_HELP = "Do not prompt for confirmation."
-PLAIN_FOREIGN_KEYS_HELP = (
+HELP_HIDE = "Hide these columns in the results."
+HELP_LIMIT = "Limit the number of rows returned from the database."
+HELP_NO_CONFIRM = "Do not prompt for confirmation."
+HELP_OFFSET = "Offset a query with --limit."
+HELP_ORDER_BY = "Order the results by one or more columns."
+HELP_PAGE = (
+    "Select the page of results to show, "
+    + "if the table is too wide to display in one screen."
+)
+HELP_PLAIN_FOREIGN_KEYS = (
     "By default, isqlite will pretty-print foreign key columns with the first "
     + "TEXT column of the foreign key table. Pass this flag if you would rather just "
     + "see the foreign key values themselves."
@@ -178,7 +178,7 @@ def main_create_table(db_path, table, columns):
     "--no-confirm",
     is_flag=True,
     default=False,
-    help=NO_CONFIRM_HELP,
+    help=HELP_NO_CONFIRM,
 )
 def main_delete_wrapper(*args, **kwargs):
     """
@@ -247,7 +247,7 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
     "--no-confirm",
     is_flag=True,
     default=False,
-    help=NO_CONFIRM_HELP,
+    help=HELP_NO_CONFIRM,
 )
 def main_drop_column_wrapper(*args, **kwargs):
     """
@@ -281,7 +281,7 @@ def main_drop_column(db_path, table, column, *, no_confirm=False):
     "--no-confirm",
     is_flag=True,
     default=False,
-    help=NO_CONFIRM_HELP,
+    help=HELP_NO_CONFIRM,
 )
 def main_drop_table_wrapper(*args, **kwargs):
     """
@@ -311,7 +311,7 @@ def main_drop_table(db_path, table, *, no_confirm=False):
 @click.argument("table")
 @click.argument("pk", type=int)
 @click.option(
-    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
 def main_get_wrapper(*args, **kwargs):
     """
@@ -339,15 +339,15 @@ def main_get(db_path, table, pk, *, plain_foreign_keys=False):
 @click.argument("table")
 @click.option("-w", "--where", default="")
 @click.option("-s", "--search")
-@click.option("--columns", multiple=True, default=[], help=COLUMNS_HELP)
-@click.option("--hide", multiple=True, default=[], help=HIDE_HELP)
-@click.option("-p", "--page", default=1, help=PAGE_HELP)
-@click.option("--limit", default=None, help=LIMIT_HELP)
-@click.option("--offset", default=None, help=OFFSET_HELP)
-@click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
-@click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
+@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
+@click.option("-p", "--page", default=1, help=HELP_PAGE)
+@click.option("--limit", default=None, help=HELP_LIMIT)
+@click.option("--offset", default=None, help=HELP_OFFSET)
+@click.option("--order-by", multiple=True, default=[], help=HELP_ORDER_BY)
+@click.option("--desc", is_flag=True, default=False, help=HELP_DESC)
 @click.option(
-    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
 def main_list_wrapper(*args, **kwargs):
     """
@@ -677,15 +677,15 @@ def main_reorder_columns(db_path, table, columns):
 @click.argument("table")
 @click.argument("query")
 @click.option("-w", "--where", default="")
-@click.option("--columns", multiple=True, default=[], help=COLUMNS_HELP)
-@click.option("--hide", multiple=True, default=[], help=HIDE_HELP)
-@click.option("-p", "--page", default=1, help=PAGE_HELP)
-@click.option("--limit", default=None, help=LIMIT_HELP)
-@click.option("--offset", default=None, help=OFFSET_HELP)
-@click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
-@click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
+@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
+@click.option("-p", "--page", default=1, help=HELP_PAGE)
+@click.option("--limit", default=None, help=HELP_LIMIT)
+@click.option("--offset", default=None, help=HELP_OFFSET)
+@click.option("--order-by", multiple=True, default=[], help=HELP_ORDER_BY)
+@click.option("--desc", is_flag=True, default=False, help=HELP_DESC)
 @click.option(
-    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
 def main_search_wrapper(*args, **kwargs):
     """
@@ -728,9 +728,9 @@ def main_search(
 @cli.command(name="sql")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("query")
-@click.option("--columns", multiple=True, default=[], help=COLUMNS_HELP)
-@click.option("--hide", multiple=True, default=[], help=HIDE_HELP)
-@click.option("-p", "--page", default=1, help=PAGE_HELP)
+@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
+@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
+@click.option("-p", "--page", default=1, help=HELP_PAGE)
 @click.option(
     "--write",
     is_flag=True,
