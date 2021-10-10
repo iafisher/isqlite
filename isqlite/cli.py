@@ -121,37 +121,6 @@ def main_create(db_path, table, payload, *, auto_timestamp=True):
         print(f"Row {pk} created.")
 
 
-@cli.command(name="icreate")
-@click.argument("db_path")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
-@click.argument("table")
-def main_icreate(db_path, schema_path, table):
-    """
-    Create a new row interactively.
-    """
-    schema = get_schema_map_from_path(schema_path)
-    with Database(db_path) as db:
-        table_schema = schema.get(table)
-        if table_schema is None:
-            print(f"Table {table!r} not found in schema.")
-            sys.exit(1)
-
-        payload = {}
-        for column in table_schema.columns.values():
-            if column.name in ("id", "created_at", "last_updated_at"):
-                continue
-
-            while True:
-                raw_value = input(f"{column.description()}? ").strip()
-                value, is_valid = column.validate(raw_value)
-                if is_valid:
-                    payload[column.name] = value
-                    break
-
-        pk = db.create(table, payload)
-        print(f"Row {pk} created.")
-
-
 @cli.command(name="create-table")
 @click.argument("db_path")
 @click.argument("table")
@@ -787,60 +756,6 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
         print(f"Row {pk} updated.")
 
 
-@cli.command(name="iupdate")
-@click.argument("db_path")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
-@click.argument("table")
-@click.argument("pk", type=int)
-def main_iupdate(db_path, schema_path, table, pk):
-    """
-    Update an existing row interactively.
-    """
-    schema = get_schema_map_from_path(schema_path)
-    with Database(db_path) as db:
-        table_schema = schema.get(table)
-        if table_schema is None:
-            print(f"Table {table!r} not found.")
-            sys.exit(1)
-
-        row = db.get_by_pk(table, pk)
-        if row is None:
-            print(f"Row {pk} not found in table {table!r}.")
-            sys.exit(1)
-
-        print("To keep a column's current value, enter a blank line.")
-        print("To set a column to null, enter NULL in all caps.")
-        print()
-
-        updates = {}
-        for column in table_schema.columns.values():
-            if column.name in ("id", "created_at", "last_updated_at"):
-                continue
-
-            while True:
-                currently = (
-                    "null"
-                    if row[column.name] is None or row[column.name] == ""
-                    else repr(row[column.name])
-                )
-                raw_value = input(
-                    f"{column.description()} (currently: {currently})? "
-                ).strip()
-                if raw_value == "":
-                    break
-                elif raw_value == "NULL":
-                    raw_value = ""
-
-                value, is_valid = column.validate(raw_value)
-                if is_valid:
-                    updates[column.name] = value
-                    break
-
-        db.update_by_pk(table, pk, updates)
-        print()
-        print(f"Row {pk} updated.")
-
-
 def prettyprint_rows(rows, *, columns=[], hide=[], page=1):
     headers = [key for key in rows[0].keys() if should_show_column(key, columns, hide)]
     table_rows = [
@@ -930,13 +845,3 @@ def get_schema_from_path(schema_path):
     schema_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(schema_module)
     return schema_module.SCHEMA
-
-
-def get_schema_map_from_path(schema_path):
-    return schema_to_map(get_schema_from_path(schema_path))
-
-
-def schema_to_map(schema):
-    if schema is None:
-        return {}
-    return collections.OrderedDict((table.name, table) for table in schema)
