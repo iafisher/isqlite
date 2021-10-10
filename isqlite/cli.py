@@ -8,7 +8,6 @@ used by Click, the argument parsing framework. The tests in `tests/test_cli.py` 
 """
 import collections
 import importlib
-import readline  # noqa: F401
 import shutil
 import sqlite3
 import sys

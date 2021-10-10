@@ -1,6 +1,4 @@
 import collections
-import decimal
-import re
 import sqlite3
 import textwrap
 from abc import ABC
@@ -1105,23 +1103,6 @@ class BaseColumn(ABC):
         self.default = default
         self.sql_constraints = sql_constraints[:]
 
-    def validate(self, v):
-        if v == "":
-            if self.default is not None:
-                return self.default, True
-            elif self.required:
-                return None, False
-            else:
-                return None, True
-
-        if self.choices:
-            return v, v in self.choices
-
-        return self._validate(v)
-
-    def _validate(self, v):
-        return v, True
-
     def as_sql(self):
         constraints = []
         if self.required:
@@ -1161,24 +1142,6 @@ class BaseColumn(ABC):
     def __str__(self):
         return str(self.as_sql())
 
-    def description(self):
-        sb = StringBuilder()
-        sb.text(self.name)
-        sb.text(" (")
-        sb.text(self.type.lower())
-        if not self.required:
-            sb.text(", optional")
-        if self.choices:
-            sb.text(f", choices = [{', '.join(map(repr, self.choices))}]")
-        sb.text(self._extra_description())
-        if self.default is not None and self.default != "":
-            sb.text(f", default = {self.default!r}")
-        sb.text(")")
-        return sb.build()
-
-    def _extra_description(self):
-        return ""
-
 
 class TextColumn(BaseColumn):
     type = "TEXT"
@@ -1187,16 +1150,6 @@ class TextColumn(BaseColumn):
         super().__init__(*args, **kwargs)
         if not self.required and self.default is None:
             self.default = ""
-
-    def validate(self, *args, **kwargs):
-        # Normally, subclasses of BaseColumn will override _validate instead. But
-        # TextColumn needs to make sure that validate _always_ returns "" instead of
-        # None, so it needs to override the default validate method instead.
-        v, is_valid = super().validate(*args, **kwargs)
-        if v is None and is_valid:
-            return "", True
-        else:
-            return v, is_valid
 
     def as_sql(self):
         constraints = [not_null_constraint()]
@@ -1244,85 +1197,25 @@ class IntegerColumn(BaseColumn):
                 check_operator_constraint(self.name, ">=", ast.Integer(self.min))
             )
 
-    def _validate(self, v):
-        try:
-            v = int(v)
-        except ValueError:
-            return None, False
-
-        if self.min is not None and v < self.min:
-            return None, False
-
-        if self.max is not None and v > self.max:
-            return None, False
-
-        return v, True
-
-    def _extra_description(self):
-        sb = StringBuilder()
-        if self.min is not None:
-            sb.text(f", min = {self.min}")
-        if self.max is not None:
-            sb.text(f", max = {self.max}")
-        return sb.build()
-
 
 class BooleanColumn(BaseColumn):
     type = "BOOLEAN"
 
-    def _validate(self, v):
-        if v == "1" or v.lower() == "true":
-            return True, True
-        elif v == "0" or v.lower() == "false":
-            return False, True
-        else:
-            return None, False
-
 
 class DateColumn(BaseColumn):
     type = "DATE"
-    date_pattern = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-
-    def _validate(self, v):
-        if self.date_pattern.match(v):
-            return v, True
-        else:
-            return None, False
 
 
 class TimestampColumn(BaseColumn):
     type = "TIMESTAMP"
-    pattern = re.compile(
-        r"^[0-9]{4}-[0-9]{2}-[0-9]{2} "
-        + r"[0-9]{1,2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}\+[0-9]{2}:[0-9]{2}$"
-    )
-
-    def _validate(self, v):
-        if self.pattern.match(v):
-            return v, True
-        else:
-            return None, False
 
 
 class TimeColumn(BaseColumn):
     type = "TIME"
-    pattern = re.compile(r"^[0-9]{1,2}:[0-9]{2}$")
-
-    def _validate(self, v):
-        if self.pattern.match(v):
-            return v, True
-        else:
-            return None, False
 
 
 class DecimalColumn(BaseColumn):
     type = "DECIMAL"
-
-    def _validate(self, v):
-        try:
-            return decimal.Decimal(v), True
-        except decimal.InvalidOperation:
-            return None, False
 
 
 class ForeignKeyColumn(BaseColumn):
@@ -1339,15 +1232,6 @@ class ForeignKeyColumn(BaseColumn):
                 on_delete=on_delete,
             )
         )
-
-    def _validate(self, v):
-        try:
-            return int(v), True
-        except ValueError:
-            return None, False
-
-    def _extra_description(self):
-        return f", foreign key = {self.model}"
 
 
 class PrimaryKeyColumn(IntegerColumn):
@@ -1486,17 +1370,6 @@ class PrintDebugger:
         print(textwrap.indent(f"Values: {values!r}", "  "))
         print()
         print("=== END SQL DEBUGGER ===")
-
-
-class StringBuilder:
-    def __init__(self):
-        self.parts = []
-
-    def text(self, s):
-        self.parts.append(s)
-
-    def build(self):
-        return "".join(self.parts)
 
 
 class ISqliteError(Exception):
