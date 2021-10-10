@@ -189,7 +189,6 @@ class OtherCommandsTests(TemporaryFileTestCase):
 
         cli.main_alter_column(
             self.db_file_path,
-            "tests/schema_basic.py",
             "books",
             "author TEXT NOT NULL DEFAULT 'unknown'",
         )
@@ -230,7 +229,6 @@ class OtherCommandsTests(TemporaryFileTestCase):
 
         cli.main_drop_column(
             self.db_file_path,
-            "tests/schema_basic.py",
             "books",
             "author",
             no_confirm=True,
@@ -291,9 +289,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     def test_rename_column(self, mock_stdout):
         self.create_table(with_data=True)
 
-        cli.main_rename_column(
-            self.db_file_path, "tests/schema_basic.py", "books", "author", "authors"
-        )
+        cli.main_rename_column(self.db_file_path, "books", "author", "authors")
         mock_stdout.clear()
 
         cli.main_list(self.db_file_path, None, "books")
@@ -324,9 +320,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
     def test_reorder_columns(self, mock_stdout):
         self.create_table(with_data=True)
 
-        cli.main_reorder_columns(
-            self.db_file_path, "tests/schema_basic.py", "books", ["author", "title"]
-        )
+        cli.main_reorder_columns(self.db_file_path, "books", ["author", "title"])
         mock_stdout.clear()
 
         cli.main_list(self.db_file_path, None, "books")

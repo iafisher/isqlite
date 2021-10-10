@@ -44,7 +44,6 @@ class Database:
         self,
         path,
         *,
-        schema=None,
         transaction=True,
         debugger=None,
         readonly=None,
@@ -56,9 +55,6 @@ class Database:
 
         :param path: The path to the database file. You may pass ``":memory"`` for an
             in-memory database.
-        :param schema: A list of ``Table`` objects describing the schema of the
-            database. The schema is optional, but is required for certain features, such
-            as the ``get_related`` parameter of ``Database.get`` and ``Database.list``.
         :param transaction: If true, a transaction is automatically opened with BEGIN.
             When the ``Database`` class is used in a ``with`` statement, the transaction
             will be committed at the end (or rolled back if an exception occurs), so
@@ -130,12 +126,6 @@ class Database:
             debugger = PrintDebugger()
         self.debugger = debugger
 
-        self.schema = (
-            collections.OrderedDict((table.name, table) for table in schema)
-            if schema is not None
-            else None
-        )
-
         self.connection.row_factory = ordered_dict_row_factory
         self.cursor = self.connection.cursor()
 
@@ -144,6 +134,8 @@ class Database:
         self.sql("PRAGMA foreign_keys = 1")
         if transaction:
             self.sql("BEGIN")
+
+        self.refresh_schema()
 
     def list(
         self,
@@ -213,12 +205,6 @@ class Database:
         where_clause = f"WHERE {where}" if where else ""
 
         if get_related:
-            if self.schema is None:
-                raise ISqliteApiError(
-                    "`get_related` requires that the database was initialized with a "
-                    + "schema."
-                )
-
             columns, joins = self._get_related_columns_and_joins(table, get_related)
             rows = self.sql(
                 f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}"
@@ -249,12 +235,6 @@ class Database:
         where_clause = f"WHERE {where}" if where else ""
 
         if get_related:
-            if self.schema is None:
-                raise ISqliteApiError(
-                    "`get_related` requires that the database was initialized with a "
-                    + "schema."
-                )
-
             columns, joins = self._get_related_columns_and_joins(table, get_related)
             row = self.sql(
                 f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}",
@@ -554,6 +534,7 @@ class Database:
             )
 
         self.sql(f"CREATE TABLE {quote(table_name)}({','.join(map(str, columns))})")
+        self.refresh_schema()
 
     def drop_table(self, table_name):
         """
@@ -562,6 +543,7 @@ class Database:
         :param table_name: The name of the table to drop.
         """
         self.sql(f"DROP TABLE {quote(table_name)}")
+        self.refresh_schema()
 
     def rename_table(self, old_table_name, new_table_name):
         """
@@ -570,6 +552,7 @@ class Database:
         self.sql(
             f"ALTER TABLE {quote(old_table_name)} RENAME TO {quote(new_table_name)}"
         )
+        self.refresh_schema()
 
     def add_column(self, table_name, column_def):
         """
@@ -579,6 +562,7 @@ class Database:
         :param column_def: The definition of the column to add, as raw SQL.
         """
         self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
+        self.refresh_schema()
 
     def transaction(self, *, disable_foreign_keys=False):
         """
@@ -661,38 +645,24 @@ class Database:
 
         self.close()
 
-    def diff(self, schema=None, *, table=None):
+    def diff(self, schema, *, table=None):
         """
         Return a list of differences between the Python schema and the actual database
         schema.
 
-        :param schema: The Python schema to use. If None, then the schema the database
-            was initialized with will be used.
+        :param schema: The Python schema to compare against the database.
         :param table: The table to diff. If None, the entire database will be diffed.
         """
-        if schema is None:
-            if self.schema is None:
-                raise ISqliteApiError(
-                    "`Database.diff` requires either that the database was initialized "
-                    + "with a schema, or an explicit schema was passed as a parameter."
-                )
+        schema = collections.OrderedDict((table.name, table) for table in schema)
 
-            schema = self.schema
-
-        tables_in_db = {
-            row["name"]: row["sql"]
-            for row in self.list(
-                "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
-            )
-        }
+        tables_in_db = self._get_sql_schema()
         tables_in_schema = schema.values() if table is None else [schema[table]]
 
         diff = collections.defaultdict(list)
         for table_in_schema in tables_in_schema:
             name = table_in_schema.name
             if name in tables_in_db:
-                sql = tables_in_db.pop(table_in_schema.name)
-                columns_in_database = sqliteparser.parse(sql)[0].columns
+                columns_in_database = tables_in_db.pop(table_in_schema.name).columns
                 columns_in_schema = [
                     column.as_sql() for column in table_in_schema.columns.values()
                 ]
@@ -804,7 +774,9 @@ class Database:
                     else:
                         raise ISqliteError("unknown migration op type")
 
-    def migrate(self, schema=None):
+            self.refresh_schema()
+
+    def migrate(self, schema):
         """
         Migrate the database to match the Python schema.
 
@@ -813,8 +785,7 @@ class Database:
 
         The entire operation will occur in a transaction.
 
-        :param schema: The Python schema to use. If None, then the schema the database
-            was initialized with will be used.
+        :param schema: The Python schema to compare against the database.
         """
         self.apply_diff(self.diff(schema))
 
@@ -839,6 +810,7 @@ class Database:
             if c.name != column_name
         )
         self._migrate_table(table_name, columns, select=select)
+        self.refresh_schema()
 
     def reorder_columns(self, table_name, column_names):
         """
@@ -864,6 +836,7 @@ class Database:
         self._migrate_table(
             table_name, columns, select=", ".join(map(quote, column_names))
         )
+        self.refresh_schema()
 
     def alter_column(self, table_name, column_name, new_column):
         """
@@ -892,6 +865,7 @@ class Database:
             columns,
             select=", ".join(quote(c.name) for c in create_table_statement.columns),
         )
+        self.refresh_schema()
 
     def rename_column(self, table_name, old_column_name, new_column_name):
         """
@@ -921,6 +895,21 @@ class Database:
             columns_after,
             select=", ".join(quote(c.name) for c in columns_before),
         )
+        self.refresh_schema()
+
+    def refresh_schema(self):
+        """
+        Refresh the database's internal representation of the SQL schema.
+
+        Users do not normally need to call this function, as all the schema-altering
+        methods on this class already call it automatically. But if you alter the schema
+        using ``Database.sql`` or in an external database connection, you may need to
+        call this method for correct behavior.
+
+        The internal schema is used by the ``get_related`` functionality of ``list`` and
+        ``get``.
+        """
+        self.schema = self._get_sql_schema()
 
     def _migrate_table(self, name, columns, *, select):
         # This procedure is copied from https://sqlite.org/lang_altertable.html
@@ -955,38 +944,39 @@ class Database:
         if get_related is True:
             get_related = {
                 column.name
-                for column in table_schema.columns.values()
-                if isinstance(column, ForeignKeyColumn)
+                for column in table_schema.columns
+                if is_foreign_key_column(column)
                 # Don't fetch recursive relations because this will cause 'ambiguous
                 # column' errors in the SQL query.
-                and column.model != table
+                and get_foreign_key_model(column) != table
             }
         else:
             get_related = set(get_related)
 
         columns = []
         joins = []
-        for column in table_schema.columns.values():
+        for column in table_schema.columns:
             if column.name in get_related:
                 # Remove the column from the set so that we can check for any
                 # non-existent columns at the end.
                 get_related.remove(column.name)
 
-                if not isinstance(column, ForeignKeyColumn):
+                if not is_foreign_key_column(column):
                     raise ISqliteError(
                         f"{column.name!r} was passed in `get_related`, "
                         + "but it is not a foreign key column"
                     )
 
-                related_table_schema = self.schema[column.model]
-                for related_column in related_table_schema.columns.values():
+                model = get_foreign_key_model(column)
+                related_table_schema = self.schema[model]
+                for related_column in related_table_schema.columns:
                     name = f"{column.name}____{related_column.name}"
                     columns.append(
-                        f"{quote(column.model)}.{quote(related_column.name)} "
+                        f"{quote(model)}.{quote(related_column.name)} "
                         + f"AS {quote(name)}"
                     )
 
-                joins.append((column.name, column.model))
+                joins.append((column.name, model))
             else:
                 columns.append(f"{quote(table)}.{quote(column.name)}")
 
@@ -1003,6 +993,15 @@ class Database:
             for join_column, join_table in joins
         )
         return columns, joins
+
+    def _get_sql_schema(self):
+        tables_in_db = {
+            row["name"]: sqliteparser.parse(row["sql"])[0]
+            for row in self.list(
+                "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
+            )
+        }
+        return tables_in_db
 
 
 class TransactionContextManager:
@@ -1079,6 +1078,21 @@ def ordered_dict_row_factory(cursor, row):
             r[name] = value
 
     return r
+
+
+def is_foreign_key_column(column: sqliteparser.ast.Column) -> bool:
+    return any(
+        isinstance(constraint, sqliteparser.ast.ForeignKeyConstraint)
+        for constraint in column.definition.constraints
+    )
+
+
+def get_foreign_key_model(column: sqliteparser.ast.Column) -> str:
+    for constraint in column.definition.constraints:
+        if isinstance(constraint, sqliteparser.ast.ForeignKeyConstraint):
+            return constraint.foreign_table
+
+    return None
 
 
 class BaseColumn(ABC):

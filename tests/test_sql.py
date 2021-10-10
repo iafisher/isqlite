@@ -10,8 +10,8 @@ from .schema import SCHEMA
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
-        self.db = Database(":memory:", schema=SCHEMA, transaction=False)
-        self.db.migrate()
+        self.db = Database(":memory:", transaction=False)
+        self.db.migrate(SCHEMA)
 
         self.db.begin_transaction()
         cs_department = self.db.create(

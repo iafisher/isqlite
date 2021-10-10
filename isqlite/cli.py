@@ -61,7 +61,6 @@ def main_add_column(db_path, table, column):
 
 @cli.command(name="alter-column")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("column")
 def main_alter_column_wrapper(*args, **kwargs):
@@ -71,9 +70,8 @@ def main_alter_column_wrapper(*args, **kwargs):
     return main_alter_column(*args, **kwargs)
 
 
-def main_alter_column(db_path, schema_path, table, column):
-    schema = get_schema_from_path(schema_path)
-    with Database(db_path, schema=schema) as db:
+def main_alter_column(db_path, table, column):
+    with Database(db_path) as db:
         column_name, column_def = column.split(maxsplit=1)
         db.alter_column(table, column_name, column_def)
         print(f"Column {column_name!r} altered in table {table!r}.")
@@ -238,7 +236,6 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
 
 @cli.command(name="drop-column")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("column")
 @click.option(
@@ -254,8 +251,7 @@ def main_drop_column_wrapper(*args, **kwargs):
     main_drop_column(*args, **kwargs)
 
 
-def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
-    schema = get_schema_from_path(schema_path)
+def main_drop_column(db_path, table, column, *, no_confirm=False):
     if not no_confirm:
         with Database(db_path) as db:
             count = db.count(table)
@@ -267,7 +263,7 @@ def main_drop_column(db_path, schema_path, table, column, *, no_confirm=False):
                 print("Operation aborted.")
                 sys.exit(1)
 
-    with Database(db_path, schema=schema) as db:
+    with Database(db_path) as db:
         db.drop_column(table, column)
         print()
         print(f"Column {column!r} dropped from table {table!r}.")
@@ -307,7 +303,6 @@ def main_drop_table(db_path, table, *, no_confirm=False):
 
 @cli.command(name="get")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("pk", type=int)
 def main_get_wrapper(*args, **kwargs):
@@ -322,13 +317,14 @@ def main_get(db_path, schema_path, table, pk):
         schema = get_schema_from_path(schema_path)
         schema_map = schema_to_map(schema)
     else:
-        schema = None
+        schema_map = None
 
-    with Database(db_path, readonly=True, schema=schema) as db:
-        row = db.get_by_pk(table, pk, get_related=schema is not None)
-        for key, value in row.items():
-            if isinstance(value, collections.OrderedDict):
-                row[key] = get_column_as_string(schema_map, table, key, value)
+    with Database(db_path, readonly=True) as db:
+        row = db.get_by_pk(table, pk, get_related=True)
+        if schema_map is not None:
+            for key, value in row.items():
+                if isinstance(value, collections.OrderedDict):
+                    row[key] = get_column_as_string(schema_map, table, key, value)
 
         if row is None:
             print(f"Row {pk} not found in table {table!r}.")
@@ -409,9 +405,9 @@ def base_list(
         schema = get_schema_from_path(schema_path)
         schema_map = schema_to_map(schema)
     else:
-        schema = None
+        schema_map = None
 
-    with Database(db_path, readonly=True, schema=schema) as db:
+    with Database(db_path, readonly=True) as db:
         try:
             rows = db.list(
                 table,
@@ -420,8 +416,7 @@ def base_list(
                 limit=limit,
                 offset=offset,
                 descending=desc if order_by else None,
-                # `get_related` is only possible when the database has a schema.
-                get_related=schema is not None,
+                get_related=True,
             )
         except sqlite3.OperationalError:
             # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
@@ -437,10 +432,11 @@ def base_list(
                 get_related=False,
             )
 
-        for row in rows:
-            for key, value in row.items():
-                if isinstance(value, collections.OrderedDict):
-                    row[key] = get_column_as_string(schema_map, table, key, value)
+        if schema_map is not None:
+            for row in rows:
+                for key, value in row.items():
+                    if isinstance(value, collections.OrderedDict):
+                        row[key] = get_column_as_string(schema_map, table, key, value)
 
         if search:
             search = search.lower()
@@ -539,12 +535,11 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
     schema = get_schema_from_path(schema_path)
     with Database(
         db_path,
-        schema=schema,
         readonly=not write,
         transaction=False,
         debugger=debug,
     ) as db:
-        diff = db.diff(table=table)
+        diff = db.diff(schema, table=table)
         if not diff:
             print("Nothing to migrate - database matches schema.")
             return
@@ -629,7 +624,6 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
 
 @cli.command(name="rename-column")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("old_name")
 @click.argument("new_name")
@@ -640,9 +634,8 @@ def main_rename_column_wrapper(*args, **kwargs):
     main_rename_column(*args, **kwargs)
 
 
-def main_rename_column(db_path, schema_path, table, old_name, new_name):
-    schema = get_schema_from_path(schema_path)
-    with Database(db_path, schema=schema) as db:
+def main_rename_column(db_path, table, old_name, new_name):
+    with Database(db_path) as db:
         db.rename_column(table, old_name, new_name)
         print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
 
@@ -666,7 +659,6 @@ def main_rename_table(db_path, table, new_name):
 
 @cli.command(name="reorder-columns")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
 def main_reorder_columns_wrapper(*args, **kwargs):
@@ -676,9 +668,8 @@ def main_reorder_columns_wrapper(*args, **kwargs):
     main_reorder_columns(*args, **kwargs)
 
 
-def main_reorder_columns(db_path, schema_path, table, columns):
-    schema = get_schema_from_path(schema_path)
-    with Database(db_path, schema=schema) as db:
+def main_reorder_columns(db_path, table, columns):
+    with Database(db_path) as db:
         db.reorder_columns(table, columns)
         print(f"Columns of table {table!r} reordered.")
 
