@@ -35,6 +35,11 @@ DESC_HELP = (
     + "ascending order."
 )
 NO_CONFIRM_HELP = "Do not prompt for confirmation."
+PLAIN_FOREIGN_KEYS_HELP = (
+    "By default, isqlite will pretty-print foreign key columns with the first "
+    + "TEXT column of the foreign key table. Pass this flag if you would rather just "
+    + "see the foreign key values themselves."
+)
 
 
 @click.group()
@@ -305,6 +310,9 @@ def main_drop_table(db_path, table, *, no_confirm=False):
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
 @click.argument("table")
 @click.argument("pk", type=int)
+@click.option(
+    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+)
 def main_get_wrapper(*args, **kwargs):
     """
     Fetch a single row.
@@ -312,19 +320,13 @@ def main_get_wrapper(*args, **kwargs):
     main_get(*args, **kwargs)
 
 
-def main_get(db_path, schema_path, table, pk):
-    if schema_path:
-        schema = get_schema_from_path(schema_path)
-        schema_map = schema_to_map(schema)
-    else:
-        schema_map = None
-
+def main_get(db_path, table, pk, *, plain_foreign_keys=False):
     with Database(db_path, readonly=True) as db:
-        row = db.get_by_pk(table, pk, get_related=True)
-        if schema_map is not None:
+        row = db.get_by_pk(table, pk, get_related=not plain_foreign_keys)
+        if not plain_foreign_keys:
             for key, value in row.items():
                 if isinstance(value, collections.OrderedDict):
-                    row[key] = get_column_as_string(schema_map, table, key, value)
+                    row[key] = get_column_as_string(value)
 
         if row is None:
             print(f"Row {pk} not found in table {table!r}.")
@@ -334,7 +336,6 @@ def main_get(db_path, schema_path, table, pk):
 
 @cli.command(name="list")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.option("-w", "--where", default="")
 @click.option("-s", "--search")
@@ -345,6 +346,9 @@ def main_get(db_path, schema_path, table, pk):
 @click.option("--offset", default=None, help=OFFSET_HELP)
 @click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
 @click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+@click.option(
+    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+)
 def main_list_wrapper(*args, **kwargs):
     """
     List the rows in the table, optionally filtered by a SQL clause.
@@ -354,7 +358,6 @@ def main_list_wrapper(*args, **kwargs):
 
 def main_list(
     db_path,
-    schema_path,
     table,
     *,
     where=None,
@@ -366,10 +369,10 @@ def main_list(
     offset=None,
     order_by=[],
     desc=False,
+    plain_foreign_keys=False,
 ):
     base_list(
         db_path,
-        schema_path,
         table,
         where=where,
         search=search,
@@ -380,12 +383,12 @@ def main_list(
         offset=offset,
         order_by=order_by,
         desc=desc,
+        plain_foreign_keys=plain_foreign_keys,
     )
 
 
 def base_list(
     db_path,
-    schema_path,
     table,
     *,
     where,
@@ -397,16 +400,11 @@ def base_list(
     offset,
     order_by,
     desc,
+    plain_foreign_keys,
 ):
     """
     Base implementation shared by `main_list` and `main_search`
     """
-    if schema_path:
-        schema = get_schema_from_path(schema_path)
-        schema_map = schema_to_map(schema)
-    else:
-        schema_map = None
-
     with Database(db_path, readonly=True) as db:
         try:
             rows = db.list(
@@ -416,7 +414,7 @@ def base_list(
                 limit=limit,
                 offset=offset,
                 descending=desc if order_by else None,
-                get_related=True,
+                get_related=not plain_foreign_keys,
             )
         except sqlite3.OperationalError:
             # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
@@ -432,11 +430,11 @@ def base_list(
                 get_related=False,
             )
 
-        if schema_map is not None:
+        if not plain_foreign_keys:
             for row in rows:
                 for key, value in row.items():
                     if isinstance(value, collections.OrderedDict):
-                        row[key] = get_column_as_string(schema_map, table, key, value)
+                        row[key] = get_column_as_string(value)
 
         if search:
             search = search.lower()
@@ -676,7 +674,6 @@ def main_reorder_columns(db_path, table, columns):
 
 @cli.command(name="search")
 @click.option("--db", "db_path", envvar="ISQLITE_DB")
-@click.option("--schema", "schema_path", envvar="ISQLITE_SCHEMA")
 @click.argument("table")
 @click.argument("query")
 @click.option("-w", "--where", default="")
@@ -687,6 +684,9 @@ def main_reorder_columns(db_path, table, columns):
 @click.option("--offset", default=None, help=OFFSET_HELP)
 @click.option("--order-by", multiple=True, default=[], help=ORDER_BY_HELP)
 @click.option("--desc", is_flag=True, default=False, help=DESC_HELP)
+@click.option(
+    "--plain-foreign-keys", is_flag=True, default=False, help=PLAIN_FOREIGN_KEYS_HELP
+)
 def main_search_wrapper(*args, **kwargs):
     """
     Shorthand for `list <table> -s <query>`
@@ -696,7 +696,6 @@ def main_search_wrapper(*args, **kwargs):
 
 def main_search(
     db_path,
-    schema_path,
     table,
     query,
     *,
@@ -708,10 +707,10 @@ def main_search(
     offset=None,
     order_by=[],
     desc=False,
+    plain_foreign_keys=False,
 ):
     base_list(
         db_path,
-        schema_path,
         table,
         where=where,
         search=query,
@@ -722,6 +721,7 @@ def main_search(
         offset=offset,
         order_by=order_by,
         desc=desc,
+        plain_foreign_keys=plain_foreign_keys,
     )
 
 
@@ -895,10 +895,31 @@ def should_show_column(key, columns, hide):
     return True
 
 
-def get_column_as_string(schema_map, base_table, column_name, column_value):
-    base_table_def = schema_map[base_table]
-    table = schema_map[base_table_def.columns[column_name].model]
-    return table.as_string(column_value)
+def get_column_as_string(column):
+    pk = None
+    text = None
+
+    # Pretty rudimentary logic: assume the first integer value is the row's primary key
+    # and the first string value is a reasonable choice for displaying the row.
+    for value in column.values():
+        if isinstance(value, int) and pk is None:
+            pk = value
+        elif isinstance(value, str) and text is None:
+            text = value
+
+        if pk is not None and text is not None:
+            break
+
+    if pk is not None:
+        if text is not None:
+            return f"{pk} ({text})"
+        else:
+            return str(pk)
+    else:
+        if text is not None:
+            return text
+        else:
+            return "<foreign row>"
 
 
 def get_schema_from_path(schema_path):

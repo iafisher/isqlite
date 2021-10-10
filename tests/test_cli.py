@@ -169,7 +169,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -198,7 +198,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -220,7 +220,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_delete(self.db_file_path, "books", 1, no_confirm=True)
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
@@ -235,7 +235,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -264,7 +264,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.create_table(with_data=True)
         mock_stdout.clear()
 
-        cli.main_get(self.db_file_path, None, "books", 1)
+        cli.main_get(self.db_file_path, "books", 1)
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -292,7 +292,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_rename_column(self.db_file_path, "books", "author", "authors")
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -323,7 +323,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_reorder_columns(self.db_file_path, "books", ["author", "title"])
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -342,7 +342,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         self.create_table(with_data=True)
         mock_stdout.clear()
 
-        cli.main_search(self.db_file_path, None, "books", "cormac")
+        cli.main_search(self.db_file_path, "books", "cormac")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -365,7 +365,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, None, "books")
+        cli.main_list(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
