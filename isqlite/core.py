@@ -976,16 +976,16 @@ class Database:
                         + "but it is not a foreign key column"
                     )
 
-                model = get_foreign_key_model(column)
-                related_table_schema = self.schema[model]
+                foreign_table = get_foreign_key_model(column)
+                related_table_schema = self.schema[foreign_table]
                 for related_column in related_table_schema.columns:
                     name = f"{column.name}____{related_column.name}"
                     columns.append(
-                        f"{quote(model)}.{quote(related_column.name)} "
+                        f"{quote(foreign_table)}.{quote(related_column.name)} "
                         + f"AS {quote(name)}"
                     )
 
-                joins.append((column.name, model))
+                joins.append((column.name, foreign_table))
             else:
                 columns.append(f"{quote(table)}.{quote(column.name)}")
 
@@ -1232,13 +1232,13 @@ class DecimalColumn(BaseColumn):
 class ForeignKeyColumn(BaseColumn):
     type = "INTEGER"
 
-    def __init__(self, *args, model, on_delete=ast.OnDelete.SET_NULL, **kwargs):
+    def __init__(self, *args, foreign_table, on_delete=ast.OnDelete.SET_NULL, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model = model
+        self.foreign_table = foreign_table
         self.sql_constraints.append(
             ast.ForeignKeyConstraint(
                 columns=[],
-                foreign_table=self.model,
+                foreign_table=self.foreign_table,
                 foreign_columns=[],
                 on_delete=on_delete,
             )

@@ -23,11 +23,11 @@ SCHEMA = [
             PrimaryKeyColumn("id"),
             TextColumn("first_name", required=True),
             TextColumn("last_name", required=True),
-            ForeignKeyColumn("department", model="departments", required=True),
+            ForeignKeyColumn("department", foreign_table="departments", required=True),
             # DELETED:
             #   BooleanColumn("tenured", required=True),
             BooleanColumn("retired", required=True),
-            ForeignKeyColumn("manager", model="professors"),
+            ForeignKeyColumn("manager", foreign_table="professors"),
         ],
     ),
     Table(
@@ -35,8 +35,8 @@ SCHEMA = [
         columns=[
             PrimaryKeyColumn("id"),
             IntegerColumn("course_number", required=True),
-            ForeignKeyColumn("department", model="departments", required=True),
-            ForeignKeyColumn("instructor", model="professors", required=True),
+            ForeignKeyColumn("department", foreign_table="departments", required=True),
+            ForeignKeyColumn("instructor", foreign_table="professors", required=True),
             TextColumn("title", required=True),
             DecimalColumn("credits", required=True),
         ],
@@ -48,7 +48,7 @@ SCHEMA = [
             IntegerColumn("student_id", required=True),
             TextColumn("first_name", required=True),
             TextColumn("last_name", required=True),
-            ForeignKeyColumn("major", model="departments"),
+            ForeignKeyColumn("major", foreign_table="departments"),
             IntegerColumn("graduation_year", required=True),
             # ADDED:
             TextColumn("dormitory", required=False),

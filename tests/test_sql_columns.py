@@ -117,7 +117,9 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_foreign_key_column_to_sql(self):
         self.assertEqual(
-            ForeignKeyColumn("project", model="projects", required=True).as_sql(),
+            ForeignKeyColumn(
+                "project", foreign_table="projects", required=True
+            ).as_sql(),
             ast.Column(
                 name="project",
                 definition=ast.ColumnDefinition(
