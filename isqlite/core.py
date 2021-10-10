@@ -564,231 +564,6 @@ class Database:
         self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
         self.refresh_schema()
 
-    def transaction(self, *, disable_foreign_keys=False):
-        """
-        Begin a new transaction in a context manager.
-
-        Intended for use as::
-
-            with Database(transaction=False) as db:
-               with db.transaction():
-                   ...
-
-               with db.transaction():
-                   ...
-
-        The return value of this method should be ignored.
-
-        :param disable_foreign_keys: If true, foreign key enforcement will be disabled
-            during the transaction. This is useful during database migrations.
-        """
-        return TransactionContextManager(
-            self, disable_foreign_keys=disable_foreign_keys
-        )
-
-    def begin_transaction(self):
-        """
-        Begin a new transaction.
-
-        Most users do not need this method. Instead, they should either use the default
-        transaction opened by ``Database`` as a context manager, or they should
-        explicitly manage their transactions with nested ``with db.transaction()``
-        statements.
-        """
-        self.sql("BEGIN")
-
-    def commit(self):
-        """
-        Commit the current transaction.
-
-        Most users do not need this method. See the note to
-        ``Database.begin_transaction``.
-        """
-        self.sql("COMMIT")
-
-    def rollback(self):
-        """
-        Roll back the current transaction.
-
-        Most users do not need this method. See the note to
-        ``Database.begin_transaction``.
-        """
-        self.sql("ROLLBACK")
-
-    @property
-    def in_transaction(self):
-        """
-        Whether or not the database is currently in a transaction.
-        """
-        return self.connection.in_transaction
-
-    def close(self):
-        """
-        Close the database connection. If a transaction is pending, commit it.
-
-        Most users do not need this method. Instead, they should use ``Database`` in a
-        ``with`` statement so that the database will be closed automatically.
-        """
-        if self.in_transaction:
-            self.commit()
-        self.connection.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self.in_transaction:
-            if exc_type is None:
-                self.commit()
-            else:
-                self.rollback()
-
-        self.close()
-
-    def diff(self, schema, *, table=None):
-        """
-        Return a list of differences between the Python schema and the actual database
-        schema.
-
-        :param schema: The Python schema to compare against the database.
-        :param table: The table to diff. If None, the entire database will be diffed.
-        """
-        schema = collections.OrderedDict((table.name, table) for table in schema)
-
-        tables_in_db = self._get_sql_schema()
-        tables_in_schema = schema.values() if table is None else [schema[table]]
-
-        diff = collections.defaultdict(list)
-        for table_in_schema in tables_in_schema:
-            name = table_in_schema.name
-            if name in tables_in_db:
-                columns_in_database = tables_in_db.pop(table_in_schema.name).columns
-                columns_in_schema = [
-                    column.as_sql() for column in table_in_schema.columns.values()
-                ]
-                self._diff_table(diff, name, columns_in_database, columns_in_schema)
-            else:
-                diff[table_in_schema.name].append(
-                    CreateTableMigration(
-                        table_in_schema.name,
-                        [
-                            str(column.as_sql())
-                            for column in table_in_schema.columns.values()
-                        ],
-                    )
-                )
-
-        if table is None:
-            for name in tables_in_db:
-                diff[name].append(DropTableMigration(name))
-
-        return diff
-
-    def _diff_table(self, diff, table_name, columns_in_database, columns_in_schema):
-        columns_in_database_map = {
-            column.name: i for i, column in enumerate(columns_in_database)
-        }
-        renamed_columns = set()
-        reordered = False
-        for new_index, column in enumerate(columns_in_schema):
-            old_index = columns_in_database_map.get(column.name)
-            if old_index is None:
-                # TODO(#567): Re-enable this.
-                # if (
-                #     new_index < len(columns_in_database)
-                #     and column.definition == columns_in_database[new_index].definition
-                # ):
-                #     old_column_name = columns_in_database[new_index].name
-                #     renamed_columns.add(old_column_name)
-                #     diff[table_name].append(
-                #         RenameColumnMigration(table_name, old_column_name, column.name)
-                #     )
-                # else:
-                #     diff[table_name].append(AddColumnMigration(table_name, column))
-                diff[table_name].append(AddColumnMigration(table_name, column))
-                continue
-
-            if old_index != new_index:
-                reordered = True
-
-            old_column = columns_in_database[old_index]
-            if old_column != column:
-                diff[table_name].append(AlterColumnMigration(table_name, column))
-
-        columns_in_schema_map = {
-            column.name: i for i, column in enumerate(columns_in_schema)
-        }
-        for column in columns_in_database:
-            if (
-                column.name not in columns_in_schema_map
-                and column.name not in renamed_columns
-            ):
-                diff[table_name].append(DropColumnMigration(table_name, column.name))
-
-        if reordered:
-            diff[table_name].append(
-                ReorderColumnsMigration(
-                    table_name, [column.name for column in columns_in_schema]
-                )
-            )
-
-        return diff
-
-    def apply_diff(self, diff):
-        """
-        Apply the diff returned by ``Database.diff`` to the database.
-
-        WARNING: This may cause columns or entire tables to be dropped from the
-        database. Make sure to examine the diff before applying it, e.g. by using the
-        ``isqlite migrate`` command.
-
-        The entire operation will occur in a transaction.
-
-        :param diff: A list of differences, as returned by ``Database.diff``.
-        """
-        with self.transaction(disable_foreign_keys=True):
-            for table_diff in diff.values():
-                for op in table_diff:
-                    if isinstance(op, CreateTableMigration):
-                        self.create_table(op.table_name, op.columns)
-                    elif isinstance(op, DropTableMigration):
-                        self.drop_table(op.table_name)
-                    elif isinstance(op, AlterColumnMigration):
-                        self.alter_column(
-                            op.table_name,
-                            op.column.name,
-                            str(op.column.definition)
-                            if op.column.definition is not None
-                            else "",
-                        )
-                    elif isinstance(op, AddColumnMigration):
-                        self.add_column(op.table_name, op.column)
-                    elif isinstance(op, DropColumnMigration):
-                        self.drop_column(op.table_name, op.column_name)
-                    elif isinstance(op, ReorderColumnsMigration):
-                        self.reorder_columns(op.table_name, op.column_names)
-                    elif isinstance(op, RenameColumnMigration):
-                        self.rename_column(
-                            op.table_name, op.old_column_name, op.new_column_name
-                        )
-                    else:
-                        raise ISqliteError("unknown migration op type")
-
-            self.refresh_schema()
-
-    def migrate(self, schema):
-        """
-        Migrate the database to match the Python schema.
-
-        WARNING: This may cause columns or entire tables to be dropped from the
-        database.
-
-        The entire operation will occur in a transaction.
-
-        :param schema: The Python schema to compare against the database.
-        """
-        self.apply_diff(self.diff(schema))
-
     def drop_column(self, table_name, column_name):
         """
         Drop a column from the database.
@@ -897,6 +672,100 @@ class Database:
         )
         self.refresh_schema()
 
+    def diff(self, schema, *, table=None):
+        """
+        Return a list of differences between the Python schema and the actual database
+        schema.
+
+        :param schema: The Python schema to compare against the database.
+        :param table: The table to diff. If None, the entire database will be diffed.
+        """
+        schema = collections.OrderedDict((table.name, table) for table in schema)
+
+        tables_in_db = self._get_sql_schema()
+        tables_in_schema = schema.values() if table is None else [schema[table]]
+
+        diff = collections.defaultdict(list)
+        for table_in_schema in tables_in_schema:
+            name = table_in_schema.name
+            if name in tables_in_db:
+                columns_in_database = tables_in_db.pop(table_in_schema.name).columns
+                columns_in_schema = [
+                    column.as_sql() for column in table_in_schema.columns.values()
+                ]
+                self._diff_table(diff, name, columns_in_database, columns_in_schema)
+            else:
+                diff[table_in_schema.name].append(
+                    CreateTableMigration(
+                        table_in_schema.name,
+                        [
+                            str(column.as_sql())
+                            for column in table_in_schema.columns.values()
+                        ],
+                    )
+                )
+
+        if table is None:
+            for name in tables_in_db:
+                diff[name].append(DropTableMigration(name))
+
+        return diff
+
+    def apply_diff(self, diff):
+        """
+        Apply the diff returned by ``Database.diff`` to the database.
+
+        WARNING: This may cause columns or entire tables to be dropped from the
+        database. Make sure to examine the diff before applying it, e.g. by using the
+        ``isqlite migrate`` command.
+
+        The entire operation will occur in a transaction.
+
+        :param diff: A list of differences, as returned by ``Database.diff``.
+        """
+        with self.transaction(disable_foreign_keys=True):
+            for table_diff in diff.values():
+                for op in table_diff:
+                    if isinstance(op, CreateTableMigration):
+                        self.create_table(op.table_name, op.columns)
+                    elif isinstance(op, DropTableMigration):
+                        self.drop_table(op.table_name)
+                    elif isinstance(op, AlterColumnMigration):
+                        self.alter_column(
+                            op.table_name,
+                            op.column.name,
+                            str(op.column.definition)
+                            if op.column.definition is not None
+                            else "",
+                        )
+                    elif isinstance(op, AddColumnMigration):
+                        self.add_column(op.table_name, op.column)
+                    elif isinstance(op, DropColumnMigration):
+                        self.drop_column(op.table_name, op.column_name)
+                    elif isinstance(op, ReorderColumnsMigration):
+                        self.reorder_columns(op.table_name, op.column_names)
+                    elif isinstance(op, RenameColumnMigration):
+                        self.rename_column(
+                            op.table_name, op.old_column_name, op.new_column_name
+                        )
+                    else:
+                        raise ISqliteError("unknown migration op type")
+
+            self.refresh_schema()
+
+    def migrate(self, schema):
+        """
+        Migrate the database to match the Python schema.
+
+        WARNING: This may cause columns or entire tables to be dropped from the
+        database.
+
+        The entire operation will occur in a transaction.
+
+        :param schema: The Python schema to compare against the database.
+        """
+        self.apply_diff(self.diff(schema))
+
     def refresh_schema(self):
         """
         Refresh the database's internal representation of the SQL schema.
@@ -910,6 +779,137 @@ class Database:
         ``get``.
         """
         self.schema = self._get_sql_schema()
+
+    def transaction(self, *, disable_foreign_keys=False):
+        """
+        Begin a new transaction in a context manager.
+
+        Intended for use as::
+
+            with Database(transaction=False) as db:
+               with db.transaction():
+                   ...
+
+               with db.transaction():
+                   ...
+
+        The return value of this method should be ignored.
+
+        :param disable_foreign_keys: If true, foreign key enforcement will be disabled
+            during the transaction. This is useful during database migrations.
+        """
+        return TransactionContextManager(
+            self, disable_foreign_keys=disable_foreign_keys
+        )
+
+    def begin_transaction(self):
+        """
+        Begin a new transaction.
+
+        Most users do not need this method. Instead, they should either use the default
+        transaction opened by ``Database`` as a context manager, or they should
+        explicitly manage their transactions with nested ``with db.transaction()``
+        statements.
+        """
+        self.sql("BEGIN")
+
+    def commit(self):
+        """
+        Commit the current transaction.
+
+        Most users do not need this method. See the note to
+        ``Database.begin_transaction``.
+        """
+        self.sql("COMMIT")
+
+    def rollback(self):
+        """
+        Roll back the current transaction.
+
+        Most users do not need this method. See the note to
+        ``Database.begin_transaction``.
+        """
+        self.sql("ROLLBACK")
+
+    @property
+    def in_transaction(self):
+        """
+        Whether or not the database is currently in a transaction.
+        """
+        return self.connection.in_transaction
+
+    def close(self):
+        """
+        Close the database connection. If a transaction is pending, commit it.
+
+        Most users do not need this method. Instead, they should use ``Database`` in a
+        ``with`` statement so that the database will be closed automatically.
+        """
+        if self.in_transaction:
+            self.commit()
+        self.connection.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.in_transaction:
+            if exc_type is None:
+                self.commit()
+            else:
+                self.rollback()
+
+        self.close()
+
+    def _diff_table(self, diff, table_name, columns_in_database, columns_in_schema):
+        columns_in_database_map = {
+            column.name: i for i, column in enumerate(columns_in_database)
+        }
+        renamed_columns = set()
+        reordered = False
+        for new_index, column in enumerate(columns_in_schema):
+            old_index = columns_in_database_map.get(column.name)
+            if old_index is None:
+                # TODO(#567): Re-enable this.
+                # if (
+                #     new_index < len(columns_in_database)
+                #     and column.definition == columns_in_database[new_index].definition
+                # ):
+                #     old_column_name = columns_in_database[new_index].name
+                #     renamed_columns.add(old_column_name)
+                #     diff[table_name].append(
+                #         RenameColumnMigration(table_name, old_column_name, column.name)
+                #     )
+                # else:
+                #     diff[table_name].append(AddColumnMigration(table_name, column))
+                diff[table_name].append(AddColumnMigration(table_name, column))
+                continue
+
+            if old_index != new_index:
+                reordered = True
+
+            old_column = columns_in_database[old_index]
+            if old_column != column:
+                diff[table_name].append(AlterColumnMigration(table_name, column))
+
+        columns_in_schema_map = {
+            column.name: i for i, column in enumerate(columns_in_schema)
+        }
+        for column in columns_in_database:
+            if (
+                column.name not in columns_in_schema_map
+                and column.name not in renamed_columns
+            ):
+                diff[table_name].append(DropColumnMigration(table_name, column.name))
+
+        if reordered:
+            diff[table_name].append(
+                ReorderColumnsMigration(
+                    table_name, [column.name for column in columns_in_schema]
+                )
+            )
+
+        return diff
 
     def _migrate_table(self, name, columns, *, select):
         # This procedure is copied from https://sqlite.org/lang_altertable.html
