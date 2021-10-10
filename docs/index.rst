@@ -8,11 +8,54 @@ Features
 * An improved Python API.
   * e.g., ``db.create("people", {"name": "John Doe"})`` instead of ``cursor.execute("INSERT INTO people VALUES ('John Doe')")``.
   * Rows are returned as ``OrderedDict`` objects instead of tuples.
-  * Helper methods to simplify common patterns, e.g. ``get_or_create``.
+  * Helper methods to simplify common patterns, e.g. ``get_or_create`` and ``create_many``.
 * Database migrations.
   * Automatically diff the database against a schema defined in Python and apply the results.
   * Or, manually alter the database schema from the command-line using commands like ``isqlite drop-table`` and ``isqlite rename-column``.
 * A command-line interface.
+
+
+Usage
+-----
+
+isqlite includes a convenient Python API that greatly simplifies working with SQL::
+
+    from isqlite import Database
+
+    with Database(":memory:") as db:
+        # Create a new row in the database.
+        pk = db.create("employees", {"name": "John Doe", "age": 30})
+    
+        # Retrieve the row as an OrderedDict.
+        person = db.get_by_pk("employees", pk)
+        print(person["name"], person["age"])
+    
+        # Update the row.
+        db.update_by_pk("employees", pk, {"age": 35})
+    
+        # Delete the row.
+        db.delete_by_pk("employees", pk)
+    
+        # Filter rows with a query.
+        employees = db.list(
+            "employees",
+            where="name LIKE :name_pattern AND age > 40",
+            values={"name_pattern": "John%"},
+        )
+    
+        # Use raw SQL if necessary.
+        pairs = db.sql(
+            """
+            SELECT
+              teams.name, employees.name
+            FROM
+              employees
+            INNER JOIN
+              teams
+            ON
+              employees.team = teams.id
+            """
+        )
 
 
 Contents
@@ -21,6 +64,12 @@ Contents
 .. toctree::
    :maxdepth: 2
 
+   installation
+   howto
+   schemas
+   cli
+   limitations
+   security
    api
 
 
