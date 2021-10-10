@@ -122,8 +122,6 @@ class MigrateTests(TemporaryFileTestCase):
                     "department",
                     "retired",
                     "manager",
-                    "created_at",
-                    "last_updated_at",
                 ],
             )
 
@@ -137,8 +135,6 @@ class MigrateTests(TemporaryFileTestCase):
                     "major",
                     "graduation_year",
                     "dormitory",
-                    "created_at",
-                    "last_updated_at",
                 ],
             )
 

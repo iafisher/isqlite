@@ -138,8 +138,6 @@ class DatabaseTests(unittest.TestCase):
                 "tenured",
                 "retired",
                 "manager",
-                "created_at",
-                "last_updated_at",
             ],
         )
 
@@ -198,7 +196,9 @@ class DatabaseTests(unittest.TestCase):
         professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])
         self.db.update_by_pk(
-            "professors", professor["id"], {"retired": True}, auto_timestamp=[]
+            "professors",
+            professor["id"],
+            {"retired": True},
         )
         professor = self.db.get_by_pk("professors", professor["id"])
         self.assertTrue(professor["retired"])
@@ -209,7 +209,6 @@ class DatabaseTests(unittest.TestCase):
             "students",
             {"graduation_year": 2026},
             where="graduation_year < 2025",
-            auto_timestamp=[],
         )
         self.assertEqual(self.db.count("students", where="graduation_year > 2025"), 3)
 
@@ -220,7 +219,9 @@ class DatabaseTests(unittest.TestCase):
         professor["retired"] = True
         time.sleep(0.1)
         self.db.update_by_pk(
-            "professors", professor["id"], professor, auto_timestamp=[]
+            "professors",
+            professor["id"],
+            professor,
         )
 
         updated_professor = self.db.get_by_pk("professors", professor["id"])
@@ -238,7 +239,6 @@ class DatabaseTests(unittest.TestCase):
                     "tenured": True,
                     "retired": True,
                 },
-                auto_timestamp=[],
             )
 
     def test_delete(self):
@@ -291,8 +291,6 @@ class DatabaseTests(unittest.TestCase):
                 "tenured",
                 "retired",
                 "manager",
-                "created_at",
-                "last_updated_at",
                 "year_of_hire",
             ],
         )
@@ -312,8 +310,6 @@ class DatabaseTests(unittest.TestCase):
                 "department",
                 "tenured",
                 "manager",
-                "created_at",
-                "last_updated_at",
             ],
         )
         self.assertEqual(self.db.sql("PRAGMA foreign_keys", as_tuple=True)[0][0], 1)
@@ -321,7 +317,7 @@ class DatabaseTests(unittest.TestCase):
     def test_drop_column_with_keyword_name(self):
         self.db.create_table("test", ["name TEXT", "age INTEGER", '"order" INTEGER'])
 
-        self.db.create("test", {"name": "John Doe", "age": 24}, auto_timestamp=[])
+        self.db.create("test", {"name": "John Doe", "age": 24})
 
         self.db.drop_column("test", "age")
 
@@ -378,7 +374,7 @@ class DatabaseTests(unittest.TestCase):
         # compare equal after the reordering operation.
         before = [dict(row) for row in self.db.list("departments", order_by="name")]
 
-        reordered = ["id", "abbreviation", "name", "created_at", "last_updated_at"]
+        reordered = ["id", "abbreviation", "name"]
         with self.db.transaction(disable_foreign_keys=True):
             self.db.reorder_columns("departments", reordered)
 
@@ -403,11 +399,11 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.db.list(table), [])
 
         column = 'c"d'
-        pk = self.db.create(table, {column: "Lorem ipsum"}, auto_timestamp=[])
+        pk = self.db.create(table, {column: "Lorem ipsum"})
         row = self.db.get_by_pk(table, pk)
         self.assertEqual(row, {column: "Lorem ipsum"})
 
-        self.db.update_by_pk(table, pk, {column: ""}, auto_timestamp=[])
+        self.db.update_by_pk(table, pk, {column: ""})
         row = self.db.get_by_pk(table, pk)
         self.assertEqual(row, {column: ""})
 

@@ -1,23 +1,26 @@
 from isqlite import (
-    AutoTable,
     BooleanColumn,
     DecimalColumn,
     ForeignKeyColumn,
     IntegerColumn,
+    PrimaryKeyColumn,
+    Table,
     TextColumn,
 )
 
 SCHEMA = [
-    AutoTable(
+    Table(
         "departments",
         columns=[
+            PrimaryKeyColumn("id"),
             TextColumn("name", required=True),
             TextColumn("abbreviation", required=True),
         ],
     ),
-    AutoTable(
+    Table(
         "professors",
         columns=[
+            PrimaryKeyColumn("id"),
             TextColumn("first_name", required=True),
             TextColumn("last_name", required=True),
             ForeignKeyColumn("department", model="departments", required=True),
@@ -26,9 +29,10 @@ SCHEMA = [
             ForeignKeyColumn("manager", model="professors"),
         ],
     ),
-    AutoTable(
+    Table(
         "courses",
         columns=[
+            PrimaryKeyColumn("id"),
             IntegerColumn("course_number", required=True),
             ForeignKeyColumn("department", model="departments", required=True),
             ForeignKeyColumn("instructor", model="professors", required=True),
@@ -36,9 +40,10 @@ SCHEMA = [
             DecimalColumn("credits", required=True),
         ],
     ),
-    AutoTable(
+    Table(
         "students",
         columns=[
+            PrimaryKeyColumn("id"),
             IntegerColumn("student_id", required=True),
             TextColumn("first_name", required=True),
             TextColumn("last_name", required=True),

@@ -47,6 +47,8 @@ class Database:
         readonly=None,
         uri=False,
         cached_statements=_Unset,
+        create_auto_timestamp_columns=[],
+        update_auto_timestamp_columns=[],
     ):
         """
         Initialize a ``Database`` object.
@@ -82,6 +84,14 @@ class Database:
         :param uri: If true, the ``path`` argument is interpreted as a URI rather than a
             file path.
         :param cached_statements: Passed on to ``sqlite3.connect``.
+        :param create_auto_timestamp_columns: A default value for
+            ``auto_timestamp_columns`` in ``create`` and ``create_many``. Usually set to
+            ``["created_at", "last_updated_at"]`` in conjunction with a schema defined
+            using ``AutoTable``.
+        :param update_auto_timestamp_columns: A default value for
+            ``auto_timestamp_columns`` in ``update``. Usually set to
+            ``["last_updated_at"]`` in conjunction with a schema defined using
+            ``AutoTable``.
         """
         # Validate arguments.
         if readonly is not None:
@@ -100,6 +110,9 @@ class Database:
                 path = f"file:{path}?mode=ro"
             else:
                 path = f"file:{path}"
+
+        self.create_auto_timestamp_columns = create_auto_timestamp_columns
+        self.update_auto_timestamp_columns = update_auto_timestamp_columns
 
         # We have to do this instead of passing the keyword arguments directly to
         # `sqlite3.connect` because we conditionally pass `cached_statements` if the
@@ -307,7 +320,7 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP_DEFAULT):
+    def create(self, table, data, *, auto_timestamp_columns=_Unset):
         """
         Insert a new row.
 
@@ -316,20 +329,19 @@ class Database:
             attacks.
         :param data: The row to insert, as a dictionary from column names to column
             values.
-        :param auto_timestamp: A list of columns into which to insert the current time,
-            as an ISO 8601 timestamp. To disable auto timestamps, pass None.
+        :param auto_timestamp_columns: A list of columns into which to insert the
+            current date and time, as an ISO 8601 timestamp. Defaults to the value of
+            ``create_auto_timestamp_columns`` passed to ``__init__`` if unset.
         """
-        if auto_timestamp is None or auto_timestamp is False:
-            auto_timestamp = []
-        elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP_DEFAULT
+        if auto_timestamp_columns is _Unset:
+            auto_timestamp_columns = self.create_auto_timestamp_columns
 
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
 
         extra = []
-        for timestamp_column in auto_timestamp:
+        for timestamp_column in auto_timestamp_columns:
             keys.append(timestamp_column)
             extra.append(CURRENT_TIMESTAMP_SQL)
 
@@ -347,7 +359,7 @@ class Database:
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_many(self, table, data, *, auto_timestamp=AUTO_TIMESTAMP_DEFAULT):
+    def create_many(self, table, data, *, auto_timestamp_columns=[]):
         """
         Insert multiple rows at once.
 
@@ -358,19 +370,17 @@ class Database:
 
         but more efficient.
         """
-        if auto_timestamp is None or auto_timestamp is False:
-            auto_timestamp = []
-        elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP_DEFAULT
-
         if not data:
             return
+
+        if auto_timestamp_columns is _Unset:
+            auto_timestamp_columns = self.create_auto_timestamp_columns
 
         keys = list(data[0].keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
 
         extra = []
-        for timestamp_column in auto_timestamp:
+        for timestamp_column in auto_timestamp_columns:
             keys.append(timestamp_column)
             extra.append(CURRENT_TIMESTAMP_SQL)
 
@@ -395,7 +405,7 @@ class Database:
         *,
         where=None,
         values={},
-        auto_timestamp=AUTO_TIMESTAMP_UPDATE_DEFAULT,
+        auto_timestamp_columns=[],
     ):
         """
         Update an existing row.
@@ -407,23 +417,24 @@ class Database:
             values.
         :param where: Restrict the set of rows to update. Same as for ``Database.list``.
         :param values: Same as for ``Database.list``.
-        :param auto_timestamp: Same as for ``Database.create``.
+        :param auto_timestamp_columns: Same as for ``Database.create``, except that if
+            the same column appears in both ``values`` and ``auto_timestamp_columns``,
+            the timestamp will be inserted instead of the value. Defaults to the value
+            of ``update_auto_timestamp_columns`` passed to ``__init__`` if unset.
         """
-        if auto_timestamp is None or auto_timestamp is False:
-            auto_timestamp = []
-        elif auto_timestamp is True:
-            auto_timestamp = AUTO_TIMESTAMP_UPDATE_DEFAULT
+        if auto_timestamp_columns is _Unset:
+            auto_timestamp_columns = self.update_auto_timestamp_columns
 
         updates = []
         for key, value in data.items():
-            if key in auto_timestamp:
+            if key in auto_timestamp_columns:
                 continue
 
             placeholder = f"v{len(values)}"
             values[placeholder] = value
             updates.append(f"{quote(key)} = :{placeholder}")
 
-        for timestamp_column in auto_timestamp:
+        for timestamp_column in auto_timestamp_columns:
             updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP_SQL}")
 
         updates = ", ".join(updates)
@@ -1267,11 +1278,7 @@ class Table:
 
 class AutoTable(Table):
     def __init__(self, name, columns):
-        id_column = IntegerColumn(
-            "id",
-            required=True,
-            sql_constraints=[ast.PrimaryKeyConstraint(autoincrement=True)],
-        )
+        id_column = PrimaryKeyColumn("id")
         created_at_column = TimestampColumn("created_at", required=True)
         last_updated_at_column = TimestampColumn("last_updated_at", required=True)
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]

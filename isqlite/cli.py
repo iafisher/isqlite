@@ -115,8 +115,15 @@ def main_create(db_path, table, payload, *, auto_timestamp=True):
         key, value = key_value.split("=")
         payload_as_map[key] = value
 
+    if auto_timestamp:
+        auto_timestamp_columns = ["created_at", "last_updated_at"]
+    else:
+        auto_timestamp_columns = []
+
     with Database(db_path) as db:
-        pk = db.create(table, payload_as_map, auto_timestamp=auto_timestamp)
+        pk = db.create(
+            table, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
+        )
         print(f"Row {pk} created.")
 
 
@@ -750,8 +757,15 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
         key, value = key_value.split("=")
         payload_as_map[key] = value
 
+    if auto_timestamp:
+        auto_timestamp_columns = ["created_at", "last_updated_at"]
+    else:
+        auto_timestamp_columns = []
+
     with Database(db_path) as db:
-        db.update_by_pk(table, pk, payload_as_map, auto_timestamp=auto_timestamp)
+        db.update_by_pk(
+            table, pk, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
+        )
         print(f"Row {pk} updated.")
 
 
