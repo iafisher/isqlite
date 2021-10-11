@@ -15,6 +15,7 @@ import tempfile
 import traceback
 
 import click
+import sqliteparser
 from tabulate import tabulate
 
 from .core import CreateTableMigration, Database, DropTableMigration
@@ -107,8 +108,7 @@ def main_create_wrapper(*args, **kwargs):
 
 def main_create(db_path, table, payload, *, auto_timestamp=True):
     if not payload:
-        print("Error: Payload must not be empty.", file=sys.stderr)
-        sys.exit(1)
+        report_error_and_exit("payload must not be empty")
 
     payload_as_map = {}
     for key_value in payload:
@@ -446,39 +446,56 @@ def base_list(
             prettyprint_rows(rows, columns=columns, hide=hide, page=page)
 
 
-@cli.command(name="list-tables")
+@cli.command(name="schema")
 @click.argument("db_path")
-def main_list_tables_wrapper(*args, **kwargs):
+@click.argument("table", required=False, default=None)
+@click.option("--as-python", is_flag=True, default=False)
+def main_schema_wrapper(*args, **kwargs):
     """
     List the names of the tables in the database.
     """
-    main_list_tables(*args, **kwargs)
+    main_schema(*args, **kwargs)
 
 
-def main_list_tables(db_path):
+def main_schema(db_path, table=None, *, as_python=False):
     with Database(db_path, readonly=True) as db:
-        rows = db.sql(
-            """
-            SELECT
-              name
-            FROM
-              sqlite_master
-            WHERE
-              type = 'table'
-            AND
-              name NOT LIKE 'sqlite_%'
-            """,
-            as_tuple=True,
-        )
+        if table is not None:
+            row = db.get(
+                "sqlite_master",
+                where="type = 'table' AND name = :table",
+                values={"table": table},
+            )
+            sql = row["sql"]
 
-        if rows:
-            print("\n".join(row[0] for row in rows))
+            if as_python:
+                raise NotImplementedError
+            else:
+                try:
+                    # Use sqliteparser to parse and pretty-print the table schema.
+                    create_table_statement = sqliteparser.parse(sql)[0]
+                    print(create_table_statement)
+                except sqliteparser.SQLiteParserError:
+                    # If sqliteparser can't parse the table schema, just directly print
+                    # what SQLite returned to us.
+                    print(sql)
+        else:
+            if as_python:
+                raise NotImplementedError
+            else:
+                rows = db.list(
+                    "sqlite_master",
+                    where="type = 'table' AND name NOT LIKE 'sqlite_%'",
+                    order_by="name",
+                )
+
+            if rows:
+                print("\n".join(row["name"] for row in rows))
 
 
 @cli.command(name="migrate")
 @click.argument("db_path")
 @click.argument("schema_path")
-@click.argument("table", required=False, default=None)
+@click.option("--table", default=None)
 @click.option(
     "--write",
     is_flag=True,
@@ -514,7 +531,7 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
     ) as db:
         diff = db.diff(schema, table=table)
         if not diff:
-            print("Nothing to migrate - database matches schema.")
+            print("Nothing to migrate: database matches schema.")
             return
 
         if write and not no_backup:
@@ -749,8 +766,7 @@ def main_update_wrapper(*args, **kwargs):
 
 def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
     if not payload:
-        print("Error: Payload must not be empty.", file=sys.stderr)
-        sys.exit(1)
+        report_error_and_exit("payload must not be empty")
 
     payload_as_map = {}
     for key_value in payload:
@@ -855,6 +871,14 @@ def get_schema_from_path(schema_path):
         return None
 
     spec = importlib.util.spec_from_file_location("schema", schema_path)
+    if spec is None:
+        report_error_and_exit(f"could not load schema file at {schema_path}")
+
     schema_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(schema_module)
     return schema_module.SCHEMA
+
+
+def report_error_and_exit(message):
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(1)

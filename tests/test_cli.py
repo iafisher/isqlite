@@ -252,7 +252,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_drop_table(self.db_file_path, "books", no_confirm=True)
         mock_stdout.clear()
 
-        cli.main_list_tables(self.db_file_path)
+        cli.main_schema(self.db_file_path)
         self.assertEqual(mock_stdout.getvalue(), "")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
@@ -274,11 +274,11 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_list_tables(self, mock_stdout):
+    def test_schema(self, mock_stdout):
         self.create_table()
         mock_stdout.clear()
 
-        cli.main_list_tables(self.db_file_path)
+        cli.main_schema(self.db_file_path)
         self.assertEqual(mock_stdout.getvalue(), "books\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
@@ -309,7 +309,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_rename_table(self.db_file_path, "books", "books_v2")
         mock_stdout.clear()
 
-        cli.main_list_tables(self.db_file_path)
+        cli.main_schema(self.db_file_path)
         self.assertEqual(mock_stdout.getvalue(), "books_v2\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
