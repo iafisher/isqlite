@@ -405,7 +405,7 @@ class Database:
         *,
         where=None,
         values={},
-        auto_timestamp_columns=[],
+        auto_timestamp_columns=_Unset,
     ):
         """
         Update an existing row.
@@ -436,6 +436,12 @@ class Database:
 
         for timestamp_column in auto_timestamp_columns:
             updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP_SQL}")
+
+        if not updates:
+            raise ISqliteError(
+                "updates cannot be empty - either `data` or `auto_timestamp_columns` "
+                + "must be set"
+            )
 
         updates = ", ".join(updates)
         where_clause = f"WHERE {where}" if where else ""
