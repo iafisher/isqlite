@@ -1,11 +1,12 @@
 import collections
 import sqlite3
 import textwrap
-from abc import ABC
 
 import sqliteparser
-from attr import attrib, attrs
-from sqliteparser import ast, quote
+from sqliteparser import quote
+
+from . import migrations
+from .columns import PrimaryKeyColumn, TimestampColumn
 
 CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
 AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
@@ -711,7 +712,7 @@ class Database:
                 self._diff_table(diff, name, columns_in_database, columns_in_schema)
             else:
                 diff[table_in_schema.name].append(
-                    CreateTableMigration(
+                    migrations.CreateTableMigration(
                         table_in_schema.name,
                         [
                             str(column.as_sql())
@@ -722,7 +723,7 @@ class Database:
 
         if table is None:
             for name in tables_in_db:
-                diff[name].append(DropTableMigration(name))
+                diff[name].append(migrations.DropTableMigration(name))
 
         return diff
 
@@ -741,11 +742,11 @@ class Database:
         with self.transaction(disable_foreign_keys=True):
             for table_diff in diff.values():
                 for op in table_diff:
-                    if isinstance(op, CreateTableMigration):
+                    if isinstance(op, migrations.CreateTableMigration):
                         self.create_table(op.table_name, op.columns)
-                    elif isinstance(op, DropTableMigration):
+                    elif isinstance(op, migrations.DropTableMigration):
                         self.drop_table(op.table_name)
-                    elif isinstance(op, AlterColumnMigration):
+                    elif isinstance(op, migrations.AlterColumnMigration):
                         self.alter_column(
                             op.table_name,
                             op.column.name,
@@ -753,13 +754,13 @@ class Database:
                             if op.column.definition is not None
                             else "",
                         )
-                    elif isinstance(op, AddColumnMigration):
+                    elif isinstance(op, migrations.AddColumnMigration):
                         self.add_column(op.table_name, op.column)
-                    elif isinstance(op, DropColumnMigration):
+                    elif isinstance(op, migrations.DropColumnMigration):
                         self.drop_column(op.table_name, op.column_name)
-                    elif isinstance(op, ReorderColumnsMigration):
+                    elif isinstance(op, migrations.ReorderColumnsMigration):
                         self.reorder_columns(op.table_name, op.column_names)
-                    elif isinstance(op, RenameColumnMigration):
+                    elif isinstance(op, migrations.RenameColumnMigration):
                         self.rename_column(
                             op.table_name, op.old_column_name, op.new_column_name
                         )
@@ -897,7 +898,9 @@ class Database:
                 #     )
                 # else:
                 #     diff[table_name].append(AddColumnMigration(table_name, column))
-                diff[table_name].append(AddColumnMigration(table_name, column))
+                diff[table_name].append(
+                    migrations.AddColumnMigration(table_name, column)
+                )
                 continue
 
             if old_index != new_index:
@@ -905,7 +908,9 @@ class Database:
 
             old_column = columns_in_database[old_index]
             if old_column != column:
-                diff[table_name].append(AlterColumnMigration(table_name, column))
+                diff[table_name].append(
+                    migrations.AlterColumnMigration(table_name, column)
+                )
 
         columns_in_schema_map = {
             column.name: i for i, column in enumerate(columns_in_schema)
@@ -915,11 +920,13 @@ class Database:
                 column.name not in columns_in_schema_map
                 and column.name not in renamed_columns
             ):
-                diff[table_name].append(DropColumnMigration(table_name, column.name))
+                diff[table_name].append(
+                    migrations.DropColumnMigration(table_name, column.name)
+                )
 
         if reordered:
             diff[table_name].append(
-                ReorderColumnsMigration(
+                migrations.ReorderColumnsMigration(
                     table_name, [column.name for column in columns_in_schema]
                 )
             )
@@ -1110,170 +1117,6 @@ def get_foreign_key_model(column: sqliteparser.ast.Column) -> str:
     return None
 
 
-class BaseColumn(ABC):
-    def __init__(
-        self, name, *, required=False, choices=[], default=None, sql_constraints=[]
-    ):
-        self.name = name
-        self.required = required
-        self.choices = choices[:]
-        self.default = default
-        self.sql_constraints = sql_constraints[:]
-
-    def as_sql(self):
-        constraints = []
-        if self.required:
-            constraints.append(not_null_constraint())
-
-        if self.choices:
-            if self.required:
-                constraints.append(ast.CheckConstraint(self._choices_as_sql()))
-            else:
-                constraints.append(
-                    ast.CheckConstraint(
-                        ast.Infix(
-                            "OR",
-                            ast.Infix("IS", ast.Identifier(self.name), ast.Null()),
-                            self._choices_as_sql(),
-                        )
-                    )
-                )
-
-        constraints.extend(self.sql_constraints)
-        return ast.Column(
-            name=self.name,
-            definition=ast.ColumnDefinition(
-                type=self.type,
-                default=convert_default(self.default),
-                constraints=constraints,
-            ),
-        )
-
-    def _choices_as_sql(self):
-        return ast.Infix(
-            "IN",
-            ast.Identifier(self.name),
-            ast.ExpressionList([convert_default(choice) for choice in self.choices]),
-        )
-
-    def __str__(self):
-        return str(self.as_sql())
-
-
-class TextColumn(BaseColumn):
-    type = "TEXT"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.required and self.default is None:
-            self.default = ""
-
-    def as_sql(self):
-        constraints = [not_null_constraint()]
-        if self.required:
-            constraints.append(non_empty_constraint(self.name))
-
-        if self.choices:
-            if self.required:
-                constraints.append(ast.CheckConstraint(self._choices_as_sql()))
-            else:
-                constraints.append(
-                    ast.CheckConstraint(
-                        ast.Infix(
-                            "OR",
-                            ast.Infix("=", ast.Identifier(self.name), ast.String("")),
-                            self._choices_as_sql(),
-                        )
-                    )
-                )
-
-        constraints.extend(self.sql_constraints)
-        return ast.Column(
-            name=self.name,
-            definition=ast.ColumnDefinition(
-                type=self.type,
-                default=convert_default(self.default),
-                constraints=constraints,
-            ),
-        )
-
-
-class IntegerColumn(BaseColumn):
-    type = "INTEGER"
-
-    def __init__(self, *args, max=None, min=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max = max
-        self.min = min
-        if self.max is not None:
-            self.sql_constraints.append(
-                check_operator_constraint(self.name, "<=", ast.Integer(self.max))
-            )
-        if self.min is not None:
-            self.sql_constraints.append(
-                check_operator_constraint(self.name, ">=", ast.Integer(self.min))
-            )
-
-
-class BooleanColumn(BaseColumn):
-    type = "BOOLEAN"
-
-
-class DateColumn(BaseColumn):
-    type = "DATE"
-
-
-class TimestampColumn(BaseColumn):
-    type = "TIMESTAMP"
-
-
-class TimeColumn(BaseColumn):
-    type = "TIME"
-
-
-class DecimalColumn(BaseColumn):
-    type = "DECIMAL"
-
-
-class ForeignKeyColumn(BaseColumn):
-    type = "INTEGER"
-
-    def __init__(self, *args, foreign_table, on_delete=ast.OnDelete.SET_NULL, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.foreign_table = foreign_table
-        self.sql_constraints.append(
-            ast.ForeignKeyConstraint(
-                columns=[],
-                foreign_table=self.foreign_table,
-                foreign_columns=[],
-                on_delete=on_delete,
-            )
-        )
-
-
-class PrimaryKeyColumn(IntegerColumn):
-    def __init__(self, name):
-        super().__init__(
-            name,
-            required=True,
-            sql_constraints=[ast.PrimaryKeyConstraint(autoincrement=True)],
-        )
-
-
-def not_null_constraint():
-    return ast.NotNullConstraint()
-
-
-def non_empty_constraint(name):
-    return check_operator_constraint(name, "!=", ast.String(""))
-
-
-def check_operator_constraint(name, operator, value):
-    return ast.CheckConstraint(
-        expr=ast.Infix(operator=operator, left=ast.Identifier(name), right=value)
-    )
-
-
 class Table:
     def __init__(self, name, columns):
         self.name = name
@@ -1289,81 +1132,6 @@ class AutoTable(Table):
         last_updated_at_column = TimestampColumn("last_updated_at", required=True)
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
         super().__init__(name, columns)
-
-
-def convert_default(default):
-    if default is not None:
-        if isinstance(default, str):
-            return ast.String(default)
-        elif isinstance(default, bool):
-            return ast.Integer(int(default))
-        elif isinstance(default, int):
-            return ast.Integer(default)
-
-    return default
-
-
-@attrs
-class CreateTableMigration:
-    table_name = attrib()
-    columns = attrib(factory=list)
-
-    def __str__(self):
-        return f"Create table {self.table_name}"
-
-
-@attrs
-class DropTableMigration:
-    table_name = attrib()
-
-    def __str__(self):
-        return f"Drop table {self.table_name}"
-
-
-@attrs
-class AlterColumnMigration:
-    table_name = attrib()
-    column = attrib()
-
-    def __str__(self):
-        return f"Alter column: {self.column}"
-
-
-@attrs
-class AddColumnMigration:
-    table_name = attrib()
-    column = attrib()
-
-    def __str__(self):
-        return f"Add column: {self.column}"
-
-
-@attrs
-class DropColumnMigration:
-    table_name = attrib()
-    column_name = attrib()
-
-    def __str__(self):
-        return f"Drop column {self.column_name}"
-
-
-@attrs
-class ReorderColumnsMigration:
-    table_name = attrib()
-    column_names = attrib()
-
-    def __str__(self):
-        return f"Reorder columns: {', '.join(self.column_names)}"
-
-
-@attrs
-class RenameColumnMigration:
-    table_name = attrib()
-    old_column_name = attrib()
-    new_column_name = attrib()
-
-    def __str__(self):
-        return f"Rename column: {self.old_column_name} => {self.new_column_name}"
 
 
 class PrintDebugger:

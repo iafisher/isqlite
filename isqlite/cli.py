@@ -18,7 +18,7 @@ import click
 import sqliteparser
 from tabulate import tabulate
 
-from .core import CreateTableMigration, Database, DropTableMigration
+from . import Database, migrations
 
 # Help strings used in multiple places.
 HELP_COLUMNS = "Only display these columns in the results."
@@ -549,11 +549,15 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
             else:
                 printed = True
 
-            if len(table_diff) == 1 and isinstance(table_diff[0], CreateTableMigration):
+            if len(table_diff) == 1 and isinstance(
+                table_diff[0], migrations.CreateTableMigration
+            ):
                 op = table_diff[0]
                 print(f"Create table {op.table_name}")
                 tables_created += 1
-            elif len(table_diff) == 1 and isinstance(table_diff[0], DropTableMigration):
+            elif len(table_diff) == 1 and isinstance(
+                table_diff[0], migrations.DropTableMigration
+            ):
                 op = table_diff[0]
                 print(f"Drop table {op.table_name}")
                 tables_dropped += 1

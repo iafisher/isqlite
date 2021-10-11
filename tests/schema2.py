@@ -1,10 +1,10 @@
-from isqlite import (
+from isqlite import Table
+from isqlite.columns import (
     BooleanColumn,
     DecimalColumn,
     ForeignKeyColumn,
     IntegerColumn,
     PrimaryKeyColumn,
-    Table,
     TextColumn,
 )
 

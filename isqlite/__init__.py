@@ -5,30 +5,16 @@ import sqlite3
 # Re-export some names from sqliteparser.
 from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
-from .core import (
-    AddColumnMigration,
-    AlterColumnMigration,
+from . import columns, migrations
+from .database import (
     AutoTable,
-    BooleanColumn,
     ColumnDoesNotExistError,
-    CreateTableMigration,
     Database,
-    DateColumn,
-    DecimalColumn,
-    DropColumnMigration,
-    DropTableMigration,
-    ForeignKeyColumn,
-    IntegerColumn,
     ISqliteApiError,
     ISqliteError,
-    PrimaryKeyColumn,
     PrintDebugger,
-    ReorderColumnsMigration,
     Table,
     TableDoesNotExistError,
-    TextColumn,
-    TimeColumn,
-    TimestampColumn,
 )
 
 
