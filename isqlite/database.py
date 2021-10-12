@@ -1118,9 +1118,13 @@ def get_foreign_key_model(column: sqliteparser.ast.Column) -> str:
 class Table:
     def __init__(self, name, columns):
         self.name = name
-        self.columns = collections.OrderedDict(
-            (column.name, column) for column in columns
-        )
+        self.columns = collections.OrderedDict()
+
+        for column in columns:
+            if isinstance(column, str):
+                column = sqliteparser.parse_column(column)
+
+            self.columns[column.name] = column
 
 
 class AutoTable(Table):

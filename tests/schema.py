@@ -4,9 +4,9 @@ SCHEMA = [
     Table(
         "departments",
         columns=[
-            columns.primary_key("id"),
-            columns.text("name", required=True),
-            columns.text("abbreviation", required=True),
+            "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT",
+            "name TEXT NOT NULL CHECK(name != '')",
+            "abbreviation TEXT NOT NULL CHECK(name != '')",
         ],
     ),
     Table(
