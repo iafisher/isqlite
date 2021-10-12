@@ -98,7 +98,7 @@ class MigrateTests(TemporaryFileTestCase):
         # Migrate to a new schema.
         cli.main_migrate(
             self.db_file_path,
-            "tests/schema2.py",
+            "tests/schema_altered.py",
             None,
             write=True,
             no_backup=True,
