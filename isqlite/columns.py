@@ -1,7 +1,7 @@
 from sqliteparser import ast
 
 
-def base(name, type, *, required=True, choices=[], default=None, constraints=[]):
+def _base(name, type, *, required=True, choices=[], default=None, constraints=[]):
     if required:
         constraints = [_not_null_constraint()] + constraints
 
@@ -18,7 +18,84 @@ def base(name, type, *, required=True, choices=[], default=None, constraints=[])
     )
 
 
+def boolean(name, *, required=True, default=None):
+    """
+    A ``BOOLEAN`` column.
+
+    Note that SQLite lacks a built-in boolean type, and instead represents boolean
+    values as ``0`` or ``1``.
+    """
+    return _base(name, "BOOLEAN", required=required, default=default)
+
+
+def date(name, *, required=True, default=None):
+    """
+    A ``DATE`` column for values in ISO 8601 format, e.g. ``2021-01-01``.
+    """
+    return _base(name, "DATE", required=required, default=default)
+
+
+def decimal(name, *, required=True, default=None):
+    """
+    A ``DECIMAL`` column.
+    """
+    return _base(name, "DECIMAL", required=required, default=default)
+
+
+def foreign_key(name, foreign_table, *, required=True, on_delete=ast.OnDelete.SET_NULL):
+    """
+    A foreign key column.
+    """
+    constraints = [
+        ast.ForeignKeyConstraint(
+            columns=[],
+            foreign_table=foreign_table,
+            foreign_columns=[],
+            on_delete=on_delete,
+        )
+    ]
+    return _base(name, "INTEGER", required=required, constraints=constraints)
+
+
+def integer(name, *, required=True, choices=[], default=None, max=None, min=None):
+    """
+    An ``INTEGER`` column.
+    """
+    constraints = []
+    if max is not None:
+        constraints.append(_check_operator_constraint(name, "<=", ast.Integer(max)))
+
+    if min is not None:
+        constraints.append(_check_operator_constraint(name, ">=", ast.Integer(min)))
+
+    return _base(
+        name,
+        "INTEGER",
+        required=required,
+        choices=choices,
+        default=default,
+        constraints=constraints,
+    )
+
+
+def primary_key(name, *, autoincrement=True):
+    """
+    A primary key column.
+    """
+    constraints = [
+        ast.PrimaryKeyConstraint(autoincrement=autoincrement),
+    ]
+    return _base(name, "INTEGER", required=True, constraints=constraints)
+
+
 def text(name, *, required=True, choices=[], default=None):
+    """
+    A ``TEXT`` column.
+
+    There are two possible "empty" values for a ``TEXT`` column: the empty string and
+    ``NULL``. To avoid confusion, this function always returns a ``NOT NULL`` column
+    so that the only possible empty value is the empty string.
+    """
     if not required and default is None:
         default = ""
 
@@ -40,61 +117,19 @@ def text(name, *, required=True, choices=[], default=None):
     )
 
 
-def integer(name, *, required=True, choices=[], default=None, max=None, min=None):
-    constraints = []
-    if max is not None:
-        constraints.append(_check_operator_constraint(name, "<=", ast.Integer(max)))
-
-    if min is not None:
-        constraints.append(_check_operator_constraint(name, ">=", ast.Integer(min)))
-
-    return base(
-        name,
-        "INTEGER",
-        required=required,
-        choices=choices,
-        default=default,
-        constraints=constraints,
-    )
-
-
-def boolean(name, *, required=True, default=None):
-    return base(name, "BOOLEAN", required=required, default=default)
-
-
-def date(name, *, required=True, default=None):
-    return base(name, "DATE", required=required, default=default)
+def time(name, *, required=True, default=None):
+    """
+    A ``TIME`` column for values in HH:MM:SS format
+    """
+    return _base(name, "TIME", required=required, default=default)
 
 
 def timestamp(name, *, required=True, default=None):
-    return base(name, "TIMESTAMP", required=required, default=default)
-
-
-def time(name, *, required=True, default=None):
-    return base(name, "TIME", required=required, default=default)
-
-
-def decimal(name, *, required=True, default=None):
-    return base(name, "DECIMAL", required=required, default=default)
-
-
-def foreign_key(name, foreign_table, *, required=True, on_delete=ast.OnDelete.SET_NULL):
-    constraints = [
-        ast.ForeignKeyConstraint(
-            columns=[],
-            foreign_table=foreign_table,
-            foreign_columns=[],
-            on_delete=on_delete,
-        )
-    ]
-    return base(name, "INTEGER", required=required, constraints=constraints)
-
-
-def primary_key(name, *, autoincrement=True):
-    constraints = [
-        ast.PrimaryKeyConstraint(autoincrement=autoincrement),
-    ]
-    return base(name, "INTEGER", required=True, constraints=constraints)
+    """
+    A ``TIMESTAMP`` column for values in ISO 8601 format, e.g.
+    ``2021-01-01 01:00:00.00``.
+    """
+    return _base(name, "TIMESTAMP", required=required, default=default)
 
 
 def _not_null_constraint():
