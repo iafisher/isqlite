@@ -884,7 +884,7 @@ class Database:
         for new_index, column in enumerate(columns_in_schema):
             old_index = columns_in_database_map.get(column.name)
             if old_index is None:
-                # TODO(#567): Re-enable this.
+                # TODO(#55): Re-enable this.
                 # if (
                 #     new_index < len(columns_in_database)
                 #     and column.definition == columns_in_database[new_index].definition
