@@ -8,7 +8,7 @@ from isqlite import columns
 class ColumnToSqlTests(unittest.TestCase):
     def test_text_column_to_sql(self):
         self.assertEqual(
-            columns.text("name"),
+            columns.text("name", required=False),
             ast.Column(
                 name="name",
                 definition=ast.ColumnDefinition(
@@ -37,7 +37,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_integer_column_to_sql(self):
         self.assertEqual(
-            columns.integer("age", max=100),
+            columns.integer("age", max=100, required=False),
             ast.Column(
                 name="age",
                 definition=ast.ColumnDefinition(
@@ -53,7 +53,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_boolean_column_to_sql(self):
         self.assertEqual(
-            columns.boolean("is_admin"),
+            columns.boolean("is_admin", required=False),
             ast.Column(
                 name="is_admin", definition=ast.ColumnDefinition(type="BOOLEAN")
             ),

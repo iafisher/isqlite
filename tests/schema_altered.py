@@ -13,41 +13,35 @@ SCHEMA = [
         "professors",
         columns=[
             columns.primary_key("id"),
-            columns.text("first_name", required=True),
-            columns.text("last_name", required=True),
-            columns.foreign_key(
-                "department", foreign_table="departments", required=True
-            ),
+            columns.text("first_name"),
+            columns.text("last_name"),
+            columns.foreign_key("department", foreign_table="departments"),
             # DELETED:
-            #   columns.boolean("tenured", required=True),
-            columns.boolean("retired", required=True),
-            columns.foreign_key("manager", foreign_table="professors"),
+            #   columns.boolean("tenured"),
+            columns.boolean("retired"),
+            columns.foreign_key("manager", foreign_table="professors", required=False),
         ],
     ),
     Table(
         "courses",
         columns=[
             columns.primary_key("id"),
-            columns.integer("course_number", required=True),
-            columns.foreign_key(
-                "department", foreign_table="departments", required=True
-            ),
-            columns.foreign_key(
-                "instructor", foreign_table="professors", required=True
-            ),
-            columns.text("title", required=True),
-            columns.decimal("credits", required=True),
+            columns.integer("course_number"),
+            columns.foreign_key("department", foreign_table="departments"),
+            columns.foreign_key("instructor", foreign_table="professors"),
+            columns.text("title"),
+            columns.decimal("credits"),
         ],
     ),
     Table(
         "students",
         columns=[
             columns.primary_key("id"),
-            columns.integer("student_id", required=True),
-            columns.text("first_name", required=True),
-            columns.text("last_name", required=True),
-            columns.foreign_key("major", foreign_table="departments"),
-            columns.integer("graduation_year", required=True),
+            columns.integer("student_id"),
+            columns.text("first_name"),
+            columns.text("last_name"),
+            columns.foreign_key("major", foreign_table="departments", required=False),
+            columns.integer("graduation_year"),
             # ADDED:
             columns.text("dormitory", required=False),
         ],

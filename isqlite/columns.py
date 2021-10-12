@@ -1,7 +1,7 @@
 from sqliteparser import ast
 
 
-def base(name, type, *, required=False, choices=[], default=None, constraints=[]):
+def base(name, type, *, required=True, choices=[], default=None, constraints=[]):
     if required:
         constraints = [_not_null_constraint()] + constraints
 
@@ -18,7 +18,7 @@ def base(name, type, *, required=False, choices=[], default=None, constraints=[]
     )
 
 
-def text(name, *, required=False, choices=[], default=None):
+def text(name, *, required=True, choices=[], default=None):
     if not required and default is None:
         default = ""
 
@@ -40,7 +40,7 @@ def text(name, *, required=False, choices=[], default=None):
     )
 
 
-def integer(name, *, required=False, choices=[], default=None, max=None, min=None):
+def integer(name, *, required=True, choices=[], default=None, max=None, min=None):
     constraints = []
     if max is not None:
         constraints.append(_check_operator_constraint(name, "<=", ast.Integer(max)))
@@ -58,29 +58,27 @@ def integer(name, *, required=False, choices=[], default=None, max=None, min=Non
     )
 
 
-def boolean(name, *, required=False, default=None):
+def boolean(name, *, required=True, default=None):
     return base(name, "BOOLEAN", required=required, default=default)
 
 
-def date(name, *, required=False, default=None):
+def date(name, *, required=True, default=None):
     return base(name, "DATE", required=required, default=default)
 
 
-def timestamp(name, *, required=False, default=None):
+def timestamp(name, *, required=True, default=None):
     return base(name, "TIMESTAMP", required=required, default=default)
 
 
-def time(name, *, required=False, default=None):
+def time(name, *, required=True, default=None):
     return base(name, "TIME", required=required, default=default)
 
 
-def decimal(name, *, required=False, default=None):
+def decimal(name, *, required=True, default=None):
     return base(name, "DECIMAL", required=required, default=default)
 
 
-def foreign_key(
-    name, foreign_table, *, required=False, on_delete=ast.OnDelete.SET_NULL
-):
+def foreign_key(name, foreign_table, *, required=True, on_delete=ast.OnDelete.SET_NULL):
     constraints = [
         ast.ForeignKeyConstraint(
             columns=[],
