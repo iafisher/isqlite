@@ -105,7 +105,9 @@ def text(name, *, required=True, choices=[], default=None):
         constraints.append(_not_empty_constraint(name))
 
     if choices:
-        constraints.append(_choices_constraint(name, choices, required=required))
+        constraints.append(
+            _choices_constraint(name, choices, required=required, text=True)
+        )
 
     return ast.Column(
         name=name,
@@ -146,16 +148,17 @@ def _check_operator_constraint(name, operator, value):
     )
 
 
-def _choices_constraint(name, choices, *, required):
-    if not required:
+def _choices_constraint(name, choices, *, required, text=False):
+    if required:
         return ast.CheckConstraint(_choices_as_sql(name, choices))
     else:
+        if text:
+            null_condition = ast.Infix("=", ast.Identifier(name), ast.String(""))
+        else:
+            null_condition = ast.Infix("IS", ast.Identifier(name), ast.Null())
+
         return ast.CheckConstraint(
-            ast.Infix(
-                "OR",
-                ast.Infix("IS", ast.Identifier(name), ast.Null()),
-                _choices_as_sql(name, choices),
-            )
+            ast.Infix("OR", null_condition, _choices_as_sql(name, choices))
         )
 
 
