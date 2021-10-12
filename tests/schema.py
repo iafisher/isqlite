@@ -1,54 +1,52 @@
-from isqlite import Table
-from isqlite.columns import (
-    BooleanColumn,
-    DecimalColumn,
-    ForeignKeyColumn,
-    IntegerColumn,
-    PrimaryKeyColumn,
-    TextColumn,
-)
+from isqlite import Table, columns
 
 SCHEMA = [
     Table(
         "departments",
         columns=[
-            PrimaryKeyColumn("id"),
-            TextColumn("name", required=True),
-            TextColumn("abbreviation", required=True),
+            columns.primary_key("id"),
+            columns.text("name", required=True),
+            columns.text("abbreviation", required=True),
         ],
     ),
     Table(
         "professors",
         columns=[
-            PrimaryKeyColumn("id"),
-            TextColumn("first_name", required=True),
-            TextColumn("last_name", required=True),
-            ForeignKeyColumn("department", foreign_table="departments", required=True),
-            BooleanColumn("tenured", required=True),
-            BooleanColumn("retired", required=True),
-            ForeignKeyColumn("manager", foreign_table="professors"),
+            columns.primary_key("id"),
+            columns.text("first_name", required=True),
+            columns.text("last_name", required=True),
+            columns.foreign_key(
+                "department", foreign_table="departments", required=True
+            ),
+            columns.boolean("tenured", required=True),
+            columns.boolean("retired", required=True),
+            columns.foreign_key("manager", foreign_table="professors"),
         ],
     ),
     Table(
         "courses",
         columns=[
-            PrimaryKeyColumn("id"),
-            IntegerColumn("course_number", required=True),
-            ForeignKeyColumn("department", foreign_table="departments", required=True),
-            ForeignKeyColumn("instructor", foreign_table="professors", required=True),
-            TextColumn("title", required=True),
-            DecimalColumn("credits", required=True),
+            columns.primary_key("id"),
+            columns.integer("course_number", required=True),
+            columns.foreign_key(
+                "department", foreign_table="departments", required=True
+            ),
+            columns.foreign_key(
+                "instructor", foreign_table="professors", required=True
+            ),
+            columns.text("title", required=True),
+            columns.decimal("credits", required=True),
         ],
     ),
     Table(
         "students",
         columns=[
-            PrimaryKeyColumn("id"),
-            IntegerColumn("student_id", required=True),
-            TextColumn("first_name", required=True),
-            TextColumn("last_name", required=True),
-            ForeignKeyColumn("major", foreign_table="departments"),
-            IntegerColumn("graduation_year", required=True),
+            columns.primary_key("id"),
+            columns.integer("student_id", required=True),
+            columns.text("first_name", required=True),
+            columns.text("last_name", required=True),
+            columns.foreign_key("major", foreign_table="departments"),
+            columns.integer("graduation_year", required=True),
         ],
     ),
 ]

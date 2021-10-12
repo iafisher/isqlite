@@ -2,22 +2,13 @@ import unittest
 
 from sqliteparser import ast
 
-from isqlite.columns import (
-    BooleanColumn,
-    DateColumn,
-    DecimalColumn,
-    ForeignKeyColumn,
-    IntegerColumn,
-    TextColumn,
-    TimeColumn,
-    TimestampColumn,
-)
+from isqlite import columns
 
 
 class ColumnToSqlTests(unittest.TestCase):
     def test_text_column_to_sql(self):
         self.assertEqual(
-            TextColumn("name").as_sql(),
+            columns.text("name"),
             ast.Column(
                 name="name",
                 definition=ast.ColumnDefinition(
@@ -29,7 +20,7 @@ class ColumnToSqlTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            TextColumn("name", required=True).as_sql(),
+            columns.text("name", required=True),
             ast.Column(
                 name="name",
                 definition=ast.ColumnDefinition(
@@ -46,7 +37,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_integer_column_to_sql(self):
         self.assertEqual(
-            IntegerColumn("age", max=100).as_sql(),
+            columns.integer("age", max=100),
             ast.Column(
                 name="age",
                 definition=ast.ColumnDefinition(
@@ -62,7 +53,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_boolean_column_to_sql(self):
         self.assertEqual(
-            BooleanColumn("is_admin").as_sql(),
+            columns.boolean("is_admin"),
             ast.Column(
                 name="is_admin", definition=ast.ColumnDefinition(type="BOOLEAN")
             ),
@@ -70,7 +61,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_date_column_to_sql(self):
         self.assertEqual(
-            DateColumn("date_of_birth", required=True).as_sql(),
+            columns.date("date_of_birth", required=True),
             ast.Column(
                 name="date_of_birth",
                 definition=ast.ColumnDefinition(
@@ -81,7 +72,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_timestamp_column_to_sql(self):
         self.assertEqual(
-            TimestampColumn("date_of_birth", required=True).as_sql(),
+            columns.timestamp("date_of_birth", required=True),
             ast.Column(
                 name="date_of_birth",
                 definition=ast.ColumnDefinition(
@@ -93,7 +84,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_time_column_to_sql(self):
         self.assertEqual(
-            TimeColumn("meeting_time", required=True).as_sql(),
+            columns.time("meeting_time", required=True),
             ast.Column(
                 name="meeting_time",
                 definition=ast.ColumnDefinition(
@@ -104,7 +95,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_decimal_column_to_sql(self):
         self.assertEqual(
-            DecimalColumn("price", required=True).as_sql(),
+            columns.decimal("price", required=True),
             ast.Column(
                 name="price",
                 definition=ast.ColumnDefinition(
@@ -115,9 +106,7 @@ class ColumnToSqlTests(unittest.TestCase):
 
     def test_foreign_key_column_to_sql(self):
         self.assertEqual(
-            ForeignKeyColumn(
-                "project", foreign_table="projects", required=True
-            ).as_sql(),
+            columns.foreign_key("project", foreign_table="projects", required=True),
             ast.Column(
                 name="project",
                 definition=ast.ColumnDefinition(

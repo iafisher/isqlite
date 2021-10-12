@@ -6,7 +6,8 @@ import sqliteparser
 from sqliteparser import quote
 
 from . import migrations
-from .columns import PrimaryKeyColumn, TimestampColumn
+from .columns import primary_key as primary_key_column
+from .columns import timestamp as timestamp_column
 
 CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
 AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
@@ -342,8 +343,8 @@ class Database:
         values = list(data.values())
 
         extra = []
-        for timestamp_column in auto_timestamp_columns:
-            keys.append(timestamp_column)
+        for column in auto_timestamp_columns:
+            keys.append(column)
             extra.append(CURRENT_TIMESTAMP_SQL)
 
         if extra:
@@ -381,8 +382,8 @@ class Database:
         placeholders = ",".join("?" for _ in range(len(keys)))
 
         extra = []
-        for timestamp_column in auto_timestamp_columns:
-            keys.append(timestamp_column)
+        for column in auto_timestamp_columns:
+            keys.append(column)
             extra.append(CURRENT_TIMESTAMP_SQL)
 
         if extra:
@@ -435,8 +436,8 @@ class Database:
             values[placeholder] = value
             updates.append(f"{quote(key)} = :{placeholder}")
 
-        for timestamp_column in auto_timestamp_columns:
-            updates.append(f"{quote(timestamp_column)} = {CURRENT_TIMESTAMP_SQL}")
+        for column in auto_timestamp_columns:
+            updates.append(f"{quote(column)} = {CURRENT_TIMESTAMP_SQL}")
 
         if not updates:
             raise ISqliteError(
@@ -707,17 +708,14 @@ class Database:
             if name in tables_in_db:
                 columns_in_database = tables_in_db.pop(table_in_schema.name).columns
                 columns_in_schema = [
-                    column.as_sql() for column in table_in_schema.columns.values()
+                    column for column in table_in_schema.columns.values()
                 ]
                 self._diff_table(diff, name, columns_in_database, columns_in_schema)
             else:
                 diff[table_in_schema.name].append(
                     migrations.CreateTableMigration(
                         table_in_schema.name,
-                        [
-                            str(column.as_sql())
-                            for column in table_in_schema.columns.values()
-                        ],
+                        [str(column) for column in table_in_schema.columns.values()],
                     )
                 )
 
@@ -1127,9 +1125,9 @@ class Table:
 
 class AutoTable(Table):
     def __init__(self, name, columns):
-        id_column = PrimaryKeyColumn("id")
-        created_at_column = TimestampColumn("created_at", required=True)
-        last_updated_at_column = TimestampColumn("last_updated_at", required=True)
+        id_column = primary_key_column("id")
+        created_at_column = timestamp_column("created_at", required=True)
+        last_updated_at_column = timestamp_column("last_updated_at", required=True)
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
         super().__init__(name, columns)
 
