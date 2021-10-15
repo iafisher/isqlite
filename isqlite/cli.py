@@ -82,6 +82,27 @@ def main_alter_column(db_path, table, column):
         print(f"Column {column_name!r} altered in table {table!r}.")
 
 
+@cli.command(name="count")
+@click.argument("db_path")
+@click.argument("table")
+@click.option("-w", "--where", default="")
+@click.option(
+    "--distinct",
+    default=None,
+    help="Only count rows with distinct values of this column.",
+)
+def main_count_wrapper(*args, **kwargs):
+    """
+    Count the number of rows that match the criteria.
+    """
+    return main_count(*args, **kwargs)
+
+
+def main_count(db_path, table, *, where=None, distinct=None):
+    with Database(db_path) as db:
+        print(db.count(table, where=where, distinct=distinct))
+
+
 @cli.command(name="create")
 @click.argument("db_path")
 @click.argument("table")

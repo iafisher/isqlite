@@ -210,6 +210,14 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
+    def test_count(self, mock_stdout):
+        self.create_table(with_data=True)
+        mock_stdout.clear()
+
+        cli.main_count(self.db_file_path, "books")
+        self.assertEqual(mock_stdout.getvalue(), "1\n")
+
+    @patch("sys.stdout", new_callable=ClearableStringIO)
     def test_delete(self, mock_stdout):
         self.create_table(with_data=True)
 
