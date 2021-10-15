@@ -108,9 +108,19 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.db.count("professors"), 3)
         self.assertEqual(self.db.count("courses"), 2)
         self.assertEqual(self.db.count("students"), 3)
+        self.assertEqual(self.db.count("students", distinct="first_name"), 3)
         self.assertEqual(
             self.db.count(
                 "students", where="first_name = :name", values={"name": "Helga"}
+            ),
+            1,
+        )
+        self.assertEqual(
+            self.db.count(
+                "students",
+                where="first_name = :name",
+                values={"name": "Helga"},
+                distinct="first_name",
             ),
             1,
         )
