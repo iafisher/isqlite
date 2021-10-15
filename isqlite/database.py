@@ -303,7 +303,7 @@ class Database:
         else:
             return row
 
-    def count(self, table, *, where=None, values={}):
+    def count(self, table, *, where=None, values={}, distinct=None):
         """
         Return the count of rows matching the parameters.
 
@@ -312,10 +312,14 @@ class Database:
             SQL injection attacks.
         :param where: Same as for ``Database.list``.
         :param values: Same as for ``Database.list``.
+        :param distinct: Only count rows with distinct values of this column.
         """
         where_clause = f"WHERE {where}" if where else ""
+        count_expression = (
+            "COUNT(*)" if distinct is None else f"COUNT(DISTINCT {distinct})"
+        )
         result = self.sql(
-            f"SELECT COUNT(*) FROM {quote(table)} {where_clause}",
+            f"SELECT {count_expression} FROM {quote(table)} {where_clause}",
             values,
             as_tuple=True,
             multiple=False,
