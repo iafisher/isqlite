@@ -246,6 +246,14 @@ class DatabaseTests(unittest.TestCase):
         student = self.db.get("students", where="graduation_year > 2022")
         self.assertIsNone(student)
 
+    def test_delete_by_pk(self):
+        student = self.db.get("students")
+        pk = student["id"]
+        self.db.delete_by_pk("students", pk)
+
+        student = self.db.get_by_pk("students", pk)
+        self.assertIsNone(student)
+
     def test_list(self):
         for i in range(100):
             self.db.create(
