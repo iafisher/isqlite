@@ -634,7 +634,10 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
 
         if not write:
             print()
-            print("To perform this migration, re-run with the --write flag.")
+            print(
+                "NOTE: No changes were made. To actually perform this migration, re-run"
+                + " the command with the --write flag."
+            )
 
 
 @cli.command(name="rename-column")
