@@ -1,7 +1,7 @@
 import collections
 import sqlite3
 import textwrap
-from typing import Optional
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import sqliteparser
 from sqliteparser import quote
@@ -13,6 +13,12 @@ from .columns import timestamp as timestamp_column
 CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
 AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
 AUTO_TIMESTAMP_UPDATE_DEFAULT = ("last_updated_at",)
+
+
+# Type aliases
+Row = Dict[str, Any]
+Rows = List[Dict]
+Diff = Dict[str, List[migrations.MigrateOperation]]
 
 
 class Database:
@@ -39,16 +45,16 @@ class Database:
 
     def __init__(
         self,
-        path,
+        path: str,
         *,
-        transaction=True,
-        debug=False,
-        readonly=None,
-        uri=False,
-        cached_statements=100,
-        create_auto_timestamp_columns=[],
-        update_auto_timestamp_columns=[],
-    ):
+        transaction: bool = True,
+        debug: bool = False,
+        readonly: Optional[bool] = None,
+        uri: bool = False,
+        cached_statements: int = 100,
+        create_auto_timestamp_columns: List[str] = [],
+        update_auto_timestamp_columns: List[str] = [],
+    ) -> None:
         """
         Initialize a ``Database`` object.
 
@@ -75,7 +81,7 @@ class Database:
             output.
         :param readonly: If true, the database will be opened in read-only mode. This
             option is incompatibility with ``uri=True``; if you need to pass a URI, then
-            append ``?mode=ro`` to make it read-only.
+            append ``?mode=ro`` to make it read-only. Defaults to false.
         :param uri: If true, the ``path`` argument is interpreted as a URI rather than a
             file path.
         :param cached_statements: Passed on to ``sqlite3.connect``.
@@ -134,16 +140,16 @@ class Database:
 
     def list(
         self,
-        table,
+        table: str,
         *,
-        where=None,
-        values={},
-        limit=None,
-        offset=None,
-        order_by=None,
-        descending=None,
-        get_related=[],
-    ):
+        where: str = "",
+        values: Dict[str, Any] = {},
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        order_by: Optional[str] = None,
+        descending: Optional[bool] = None,
+        get_related: Union[List[str], bool] = [],
+    ) -> Rows:
         """
         Return a list of database rows as ``OrderedDict`` objects.
 
@@ -215,7 +221,14 @@ class Database:
 
         return rows
 
-    def get(self, table, *, where=None, values={}, get_related=[]):
+    def get(
+        self,
+        table: str,
+        *,
+        where: str = "",
+        values: Dict[str, Any] = {},
+        get_related: Union[List[str], bool] = [],
+    ) -> Row:
         """
         Retrieve a single row from the database table and return it as an ``OrderedDict``
         object.
@@ -245,7 +258,7 @@ class Database:
 
         return row
 
-    def get_by_pk(self, table, pk, **kwargs):
+    def get_by_pk(self, table: str, pk: int, **kwargs) -> Row:
         """
         Retrieve a single row from the database table by its primary key.
 
@@ -258,7 +271,7 @@ class Database:
         pk_column = f"{quote(table)}.rowid"
         return self.get(table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs)
 
-    def get_or_create(self, table, data, **kwargs):
+    def get_or_create(self, table: str, data: Row, **kwargs) -> Row:
         """
         Retrieve a single row from the database table matching the parameters in
         ``data``. If no such row exists, create it and return it.
@@ -285,7 +298,14 @@ class Database:
         else:
             return row
 
-    def count(self, table, *, where=None, values={}, distinct=None):
+    def count(
+        self,
+        table: str,
+        *,
+        where: str = "",
+        values: Dict[str, Any] = {},
+        distinct: str = "",
+    ) -> int:
         """
         Return the count of rows matching the parameters.
 
@@ -297,9 +317,7 @@ class Database:
         :param distinct: Only count rows with distinct values of this column.
         """
         where_clause = f"WHERE {where}" if where else ""
-        count_expression = (
-            "COUNT(*)" if distinct is None else f"COUNT(DISTINCT {distinct})"
-        )
+        count_expression = "COUNT(*)" if not distinct else f"COUNT(DISTINCT {distinct})"
         result = self.sql(
             f"SELECT {count_expression} FROM {quote(table)} {where_clause}",
             values,
@@ -308,7 +326,13 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_timestamp_columns=False):
+    def create(
+        self,
+        table: str,
+        data: Row,
+        *,
+        auto_timestamp_columns: Union[List[str], bool] = False,
+    ) -> int:
         """
         Insert a new row.
 
@@ -321,35 +345,44 @@ class Database:
             current date and time, as an ISO 8601 timestamp. If true, it defaults to
             the value of ``create_auto_timestamp_columns`` passed to ``__init__`.
         """
-        if auto_timestamp_columns is True:
-            auto_timestamp_columns = self.create_auto_timestamp_columns
-        elif auto_timestamp_columns is False:
-            auto_timestamp_columns = []
+        if isinstance(auto_timestamp_columns, bool):
+            if auto_timestamp_columns is True:
+                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+            else:
+                auto_timestamp_columns_list = []
+        else:
+            auto_timestamp_columns_list = auto_timestamp_columns
 
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
         values = list(data.values())
 
-        extra = []
-        for column in auto_timestamp_columns:
+        extra_columns_list = []
+        for column in auto_timestamp_columns_list:
             keys.append(column)
-            extra.append(CURRENT_TIMESTAMP_SQL)
+            extra_columns_list.append(CURRENT_TIMESTAMP_SQL)
 
-        if extra:
-            extra = (", " if data else "") + ", ".join(extra)
+        if extra_columns_list:
+            extra_columns = (", " if data else "") + ", ".join(extra_columns_list)
         else:
-            extra = ""
+            extra_columns = ""
 
         sql = f"""
         INSERT INTO {quote(table)}({', '.join(map(quote, keys))})
-        VALUES ({placeholders}{extra});
+        VALUES ({placeholders}{extra_columns});
         """
         if self.debugger:
             self.debugger.execute(sql, values)
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_many(self, table, data, *, auto_timestamp_columns=False):
+    def create_many(
+        self,
+        table: str,
+        data: Rows,
+        *,
+        auto_timestamp_columns: Union[List[str], bool] = False,
+    ) -> None:
         """
         Insert multiple rows at once.
 
@@ -363,27 +396,30 @@ class Database:
         if not data:
             return
 
-        if auto_timestamp_columns is True:
-            auto_timestamp_columns = self.create_auto_timestamp_columns
-        elif auto_timestamp_columns is False:
-            auto_timestamp_columns = []
+        if isinstance(auto_timestamp_columns, bool):
+            if auto_timestamp_columns is True:
+                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+            else:
+                auto_timestamp_columns_list = []
+        else:
+            auto_timestamp_columns_list = auto_timestamp_columns
 
         keys = list(data[0].keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
 
-        extra = []
-        for column in auto_timestamp_columns:
+        extra_columns_list = []
+        for column in auto_timestamp_columns_list:
             keys.append(column)
-            extra.append(CURRENT_TIMESTAMP_SQL)
+            extra_columns_list.append(CURRENT_TIMESTAMP_SQL)
 
-        if extra:
-            extra = (", " if data else "") + ", ".join(extra)
+        if extra_columns_list:
+            extra_columns = (", " if data else "") + ", ".join(extra_columns_list)
         else:
-            extra = ""
+            extra_columns = ""
 
         sql = f"""
         INSERT INTO {quote(table)}({', '.join(map(quote, keys))})
-        VALUES ({placeholders}{extra});
+        VALUES ({placeholders}{extra_columns});
         """
         values = [tuple(d.values()) for d in data]
         if self.debugger:
@@ -392,13 +428,13 @@ class Database:
 
     def update(
         self,
-        table,
-        data,
+        table: str,
+        data: Row,
         *,
-        where=None,
-        values={},
-        auto_timestamp_columns=False,
-    ):
+        where: str = "",
+        values: Dict[str, Any] = {},
+        auto_timestamp_columns: Union[List[str], bool] = False,
+    ) -> None:
         """
         Update an existing row.
 
@@ -413,37 +449,40 @@ class Database:
             the same column appears in both ``values`` and ``auto_timestamp_columns``,
             the timestamp will be inserted instead of the value.
         """
-        if auto_timestamp_columns is True:
-            auto_timestamp_columns = self.update_auto_timestamp_columns
-        elif auto_timestamp_columns is False:
-            auto_timestamp_columns = []
+        if isinstance(auto_timestamp_columns, bool):
+            if auto_timestamp_columns is True:
+                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+            else:
+                auto_timestamp_columns_list = []
+        else:
+            auto_timestamp_columns_list = auto_timestamp_columns
 
-        updates = []
+        updates_list = []
         for key, value in data.items():
-            if key in auto_timestamp_columns:
+            if key in auto_timestamp_columns_list:
                 continue
 
             placeholder = f"v{len(values)}"
             values[placeholder] = value
-            updates.append(f"{quote(key)} = :{placeholder}")
+            updates_list.append(f"{quote(key)} = :{placeholder}")
 
-        for column in auto_timestamp_columns:
-            updates.append(f"{quote(column)} = {CURRENT_TIMESTAMP_SQL}")
+        for column in auto_timestamp_columns_list:
+            updates_list.append(f"{quote(column)} = {CURRENT_TIMESTAMP_SQL}")
 
-        if not updates:
+        if not updates_list:
             raise ISqliteError(
                 "updates cannot be empty - either `data` or `auto_timestamp_columns` "
                 + "must be set"
             )
 
-        updates = ", ".join(updates)
+        updates = ", ".join(updates_list)
         where_clause = f"WHERE {where}" if where else ""
         sql = f"UPDATE {quote(table)} SET {updates} {where_clause}"
         if self.debugger:
             self.debugger.execute(sql, values)
         self.cursor.execute(sql, values)
 
-    def update_by_pk(self, table, pk, data, **kwargs):
+    def update_by_pk(self, table: str, pk: int, data: Row, **kwargs) -> None:
         """
         Update a single row.
 
@@ -463,7 +502,7 @@ class Database:
             **kwargs,
         )
 
-    def delete(self, table, *, where, values={}):
+    def delete(self, table: str, *, where: str, values: Dict[str, Any] = {}) -> None:
         """
         Delete a set of rows.
 
@@ -475,9 +514,14 @@ class Database:
             delete every row, then pass ``where="1"``.
         :param values: Same as for ``Database.list``.
         """
+        if not where:
+            raise ISqliteApiError(
+                "The `where` argument to `delete` cannot be empty - to delete every row"
+                + 'in the table, pass `where="1"`'
+            )
         self.sql(f"DELETE FROM {quote(table)} WHERE {where}", values=values)
 
-    def delete_by_pk(self, table, pk, **kwargs):
+    def delete_by_pk(self, table: str, pk: int) -> None:
         """
         Delete a single row.
 
@@ -485,14 +529,18 @@ class Database:
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
             attacks.
         :param pk: The primary key of the row to delete.
-        :param kwargs: Additional arguments to pass on to ``Database.delete``.
         """
         pk_column = f"{quote(table)}.rowid"
-        return self.delete(
-            table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs
-        )
+        return self.delete(table, where=f"{pk_column} = :pk", values={"pk": pk})
 
-    def sql(self, query, values={}, *, as_tuple=False, multiple=True):
+    def sql(
+        self,
+        query: str,
+        values: Dict[str, Any] = {},
+        *,
+        as_tuple: bool = False,
+        multiple: bool = True,
+    ) -> Any:
         """
         Execute a raw SQL query.
 
@@ -528,7 +576,7 @@ class Database:
 
             return row
 
-    def create_table(self, table_name, columns):
+    def create_table(self, table_name: str, columns: List[str]) -> None:
         """
         Create a new table.
 
@@ -544,7 +592,7 @@ class Database:
         self.sql(f"CREATE TABLE {quote(table_name)}({','.join(map(str, columns))})")
         self.refresh_schema()
 
-    def drop_table(self, table_name):
+    def drop_table(self, table_name: str) -> None:
         """
         Drop a table.
 
@@ -553,7 +601,7 @@ class Database:
         self.sql(f"DROP TABLE {quote(table_name)}")
         self.refresh_schema()
 
-    def rename_table(self, old_table_name, new_table_name):
+    def rename_table(self, old_table_name: str, new_table_name: str) -> None:
         """
         Rename a table.
         """
@@ -562,7 +610,7 @@ class Database:
         )
         self.refresh_schema()
 
-    def add_column(self, table_name, column_def):
+    def add_column(self, table_name: str, column_def: str) -> None:
         """
         Add a column to the table's schema.
 
@@ -572,7 +620,7 @@ class Database:
         self.sql(f"ALTER TABLE {quote(table_name)} ADD COLUMN {column_def}")
         self.refresh_schema()
 
-    def drop_column(self, table_name, column_name):
+    def drop_column(self, table_name: str, column_name: str) -> None:
         """
         Drop a column from the database.
         """
@@ -595,7 +643,7 @@ class Database:
         self._migrate_table(table_name, columns, select=select)
         self.refresh_schema()
 
-    def reorder_columns(self, table_name, column_names):
+    def reorder_columns(self, table_name: str, column_names: List[str]) -> None:
         """
         Reorder the columns of a database table.
 
@@ -621,7 +669,7 @@ class Database:
         )
         self.refresh_schema()
 
-    def alter_column(self, table_name, column_name, new_column):
+    def alter_column(self, table_name: str, column_name: str, new_column: str) -> None:
         """
         Alter the definition of a column.
 
@@ -650,7 +698,9 @@ class Database:
         )
         self.refresh_schema()
 
-    def rename_column(self, table_name, old_column_name, new_column_name):
+    def rename_column(
+        self, table_name: str, old_column_name: str, new_column_name: str
+    ) -> None:
         """
         Rename a column.
         """
@@ -680,20 +730,20 @@ class Database:
         )
         self.refresh_schema()
 
-    def diff(self, schema, *, table=None):
+    def diff(self, schema: List["Table"], *, table="") -> Diff:
         """
         Return a list of differences between the Python schema and the actual database
         schema.
 
         :param schema: The Python schema to compare against the database.
-        :param table: The table to diff. If None, the entire database will be diffed.
+        :param table: The table to diff. If empty, the entire database will be diffed.
         """
-        schema = collections.OrderedDict((table.name, table) for table in schema)
+        schema_map = collections.OrderedDict((table.name, table) for table in schema)
 
         tables_in_db = self._get_sql_schema()
-        tables_in_schema = schema.values() if table is None else [schema[table]]
+        tables_in_schema = schema_map.values() if not table else [schema_map[table]]
 
-        diff = collections.defaultdict(list)
+        diff: Diff = collections.defaultdict(list)
         for table_in_schema in tables_in_schema:
             name = table_in_schema.name
             if name in tables_in_db:
@@ -716,7 +766,7 @@ class Database:
 
         return diff
 
-    def apply_diff(self, diff):
+    def apply_diff(self, diff: Diff) -> None:
         """
         Apply the diff returned by ``Database.diff`` to the database.
 
@@ -758,7 +808,7 @@ class Database:
 
             self.refresh_schema()
 
-    def migrate(self, schema):
+    def migrate(self, schema: List["Table"]) -> None:
         """
         Migrate the database to match the Python schema.
 
@@ -771,7 +821,7 @@ class Database:
         """
         self.apply_diff(self.diff(schema))
 
-    def refresh_schema(self):
+    def refresh_schema(self) -> None:
         """
         Refresh the database's internal representation of the SQL schema.
 
@@ -785,7 +835,9 @@ class Database:
         """
         self.schema = self._get_sql_schema()
 
-    def transaction(self, *, disable_foreign_keys=False):
+    def transaction(
+        self, *, disable_foreign_keys: bool = False
+    ) -> "TransactionContextManager":
         """
         Begin a new transaction in a context manager.
 
@@ -807,7 +859,7 @@ class Database:
             self, disable_foreign_keys=disable_foreign_keys
         )
 
-    def begin_transaction(self):
+    def begin_transaction(self) -> None:
         """
         Begin a new transaction.
 
@@ -818,7 +870,7 @@ class Database:
         """
         self.sql("BEGIN")
 
-    def commit(self):
+    def commit(self) -> None:
         """
         Commit the current transaction.
 
@@ -827,7 +879,7 @@ class Database:
         """
         self.sql("COMMIT")
 
-    def rollback(self):
+    def rollback(self) -> None:
         """
         Roll back the current transaction.
 
@@ -837,13 +889,13 @@ class Database:
         self.sql("ROLLBACK")
 
     @property
-    def in_transaction(self):
+    def in_transaction(self) -> bool:
         """
         Whether or not the database is currently in a transaction.
         """
         return self.connection.in_transaction
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the database connection. If a transaction is pending, commit it.
 
@@ -866,11 +918,17 @@ class Database:
 
         self.close()
 
-    def _diff_table(self, diff, table_name, columns_in_database, columns_in_schema):
+    def _diff_table(
+        self,
+        diff: Diff,
+        table_name: str,
+        columns_in_database: List[sqliteparser.ast.Column],
+        columns_in_schema: List[sqliteparser.ast.Column],
+    ) -> Diff:
         columns_in_database_map = {
             column.name: i for i, column in enumerate(columns_in_database)
         }
-        renamed_columns = set()
+        renamed_columns: Set[str] = set()
         reordered = False
         for new_index, column in enumerate(columns_in_schema):
             old_index = columns_in_database_map.get(column.name)
@@ -922,7 +980,7 @@ class Database:
 
         return diff
 
-    def _migrate_table(self, name, columns, *, select):
+    def _migrate_table(self, name: str, columns: List[str], *, select: str) -> None:
         # This procedure is copied from https://sqlite.org/lang_altertable.html
         # Create the new table under a temporary name.
         tmp_table_name = quote(f"isqlite_tmp_{name}")
@@ -941,7 +999,9 @@ class Database:
         # Check that no foreign key constraints have been violated.
         self.sql("PRAGMA foreign_key_check")
 
-    def _get_create_table_statement(self, table_name):
+    def _get_create_table_statement(
+        self, table_name: str
+    ) -> sqliteparser.ast.CreateTableStatement:
         sql = self.sql(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = :table",
             {"table": table_name},
@@ -950,27 +1010,32 @@ class Database:
         )[0]
         return sqliteparser.parse(sql)[0]
 
-    def _get_related_columns_and_joins(self, table, get_related):
+    def _get_related_columns_and_joins(
+        self, table: str, get_related: Union[List[str], bool]
+    ) -> Tuple[str, str]:
         table_schema = self.schema[table]
-        if get_related is True:
-            get_related = {
-                column.name
-                for column in table_schema.columns
-                if is_foreign_key_column(column)
-                # Don't fetch recursive relations because this will cause 'ambiguous
-                # column' errors in the SQL query.
-                and get_foreign_key_model(column) != table
-            }
+        if isinstance(get_related, bool):
+            if get_related is True:
+                get_related_set = {
+                    column.name
+                    for column in table_schema.columns
+                    if is_foreign_key_column(column)
+                    # Don't fetch recursive relations because this will cause 'ambiguous
+                    # column' errors in the SQL query.
+                    and get_foreign_key_model(column) != table
+                }
+            else:
+                get_related_set = set()
         else:
-            get_related = set(get_related)
+            get_related_set = set(get_related)
 
-        columns = []
-        joins = []
+        columns_list = []
+        joins_list = []
         for column in table_schema.columns:
-            if column.name in get_related:
+            if column.name in get_related_set:
                 # Remove the column from the set so that we can check for any
                 # non-existent columns at the end.
-                get_related.remove(column.name)
+                get_related_set.remove(column.name)
 
                 if not is_foreign_key_column(column):
                     raise ISqliteError(
@@ -979,33 +1044,36 @@ class Database:
                     )
 
                 foreign_table = get_foreign_key_model(column)
+                if foreign_table is None:
+                    raise ColumnDoesNotExistError(table, foreign_table)
+
                 related_table_schema = self.schema[foreign_table]
                 for related_column in related_table_schema.columns:
                     name = f"{column.name}____{related_column.name}"
-                    columns.append(
+                    columns_list.append(
                         f"{quote(foreign_table)}.{quote(related_column.name)} "
                         + f"AS {quote(name)}"
                     )
 
-                joins.append((column.name, foreign_table))
+                joins_list.append((column.name, foreign_table))
             else:
-                columns.append(f"{quote(table)}.{quote(column.name)}")
+                columns_list.append(f"{quote(table)}.{quote(column.name)}")
 
         # We popped columns from `get_related` as we went, so if there are any left,
         # they are not valid columns of the table.
-        if get_related:
-            random = get_related.pop()
+        if get_related_set:
+            random = get_related_set.pop()
             raise ColumnDoesNotExistError(table, random)
 
-        columns = ", ".join(columns)
+        columns = ", ".join(columns_list)
         joins = "\n".join(
             f"LEFT JOIN {quote(join_table)} ON "
             + f"{quote(table)}.{quote(join_column)} = {quote(join_table)}.id"
-            for join_column, join_table in joins
+            for join_column, join_table in joins_list
         )
         return columns, joins
 
-    def _get_sql_schema(self):
+    def _get_sql_schema(self) -> Dict[str, sqliteparser.ast.Column]:
         tables_in_db = {
             row["name"]: sqliteparser.parse(row["sql"])[0]
             for row in self.list(
@@ -1016,7 +1084,7 @@ class Database:
 
 
 class TransactionContextManager:
-    def __init__(self, db, *, disable_foreign_keys=False):
+    def __init__(self, db: Database, *, disable_foreign_keys: bool = False) -> None:
         self.db = db
         self.disable_foreign_keys = disable_foreign_keys
 
@@ -1046,8 +1114,8 @@ class TransactionContextManager:
         self.db.sql("PRAGMA foreign_keys = 1")
 
 
-def ordered_dict_row_factory(cursor, row):
-    r = collections.OrderedDict()
+def ordered_dict_row_factory(cursor: sqlite3.Cursor, row: Tuple[Any]) -> Row:
+    r: Row = collections.OrderedDict()
 
     for i, column in enumerate(cursor.description):
         name = column[0]
@@ -1107,7 +1175,9 @@ def get_foreign_key_model(column: sqliteparser.ast.Column) -> Optional[str]:
 
 
 class Table:
-    def __init__(self, name, columns):
+    def __init__(
+        self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
+    ) -> None:
         self.name = name
         self.columns = collections.OrderedDict()
 
@@ -1119,7 +1189,9 @@ class Table:
 
 
 class AutoTable(Table):
-    def __init__(self, name, columns):
+    def __init__(
+        self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
+    ) -> None:
         id_column = primary_key_column("id")
         created_at_column = timestamp_column("created_at", required=True)
         last_updated_at_column = timestamp_column("last_updated_at", required=True)
@@ -1128,13 +1200,13 @@ class AutoTable(Table):
 
 
 class Debugger:
-    def execute(self, sql, values):
+    def execute(self, sql: str, values: Any) -> None:
         self._execute("Execute", sql, values)
 
-    def executemany(self, sql, values):
+    def executemany(self, sql: str, values: Any) -> None:
         self._execute("Execute many", sql, values)
 
-    def _execute(self, title, sql, values):
+    def _execute(self, title: str, sql: str, values: Any) -> None:
         print()
         print("=== SQL DEBUGGER ===")
         print(f"{title}:")

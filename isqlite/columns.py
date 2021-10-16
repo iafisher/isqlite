@@ -1,7 +1,17 @@
+from typing import Any, List, Optional
+
 from sqliteparser import ast
 
 
-def _base(name, type, *, required=True, choices=[], default=None, constraints=[]):
+def _base(
+    name: str,
+    type: str,
+    *,
+    required: bool = True,
+    choices: List[Any] = [],
+    default: Optional[Any] = None,
+    constraints=[]
+) -> ast.Column:
     if required:
         constraints = [_not_null_constraint()] + constraints
 
@@ -18,7 +28,9 @@ def _base(name, type, *, required=True, choices=[], default=None, constraints=[]
     )
 
 
-def boolean(name, *, required=True, default=None):
+def boolean(
+    name: str, *, required: bool = True, default: Optional[bool] = None
+) -> ast.Column:
     """
     A ``BOOLEAN`` column.
 
@@ -28,21 +40,31 @@ def boolean(name, *, required=True, default=None):
     return _base(name, "BOOLEAN", required=required, default=default)
 
 
-def date(name, *, required=True, default=None):
+def date(
+    name: str, *, required: bool = True, default: Optional[str] = None
+) -> ast.Column:
     """
     A ``DATE`` column for values in ISO 8601 format, e.g. ``2021-01-01``.
     """
     return _base(name, "DATE", required=required, default=default)
 
 
-def decimal(name, *, required=True, default=None):
+def decimal(
+    name: str, *, required: bool = True, default: Optional[int] = None
+) -> ast.Column:
     """
     A ``DECIMAL`` column.
     """
     return _base(name, "DECIMAL", required=required, default=default)
 
 
-def foreign_key(name, foreign_table, *, required=True, on_delete=ast.OnDelete.SET_NULL):
+def foreign_key(
+    name: str,
+    foreign_table: str,
+    *,
+    required: bool = True,
+    on_delete=ast.OnDelete.SET_NULL
+) -> ast.Column:
     """
     A foreign key column.
     """
@@ -57,7 +79,15 @@ def foreign_key(name, foreign_table, *, required=True, on_delete=ast.OnDelete.SE
     return _base(name, "INTEGER", required=required, constraints=constraints)
 
 
-def integer(name, *, required=True, choices=[], default=None, max=None, min=None):
+def integer(
+    name: str,
+    *,
+    required: bool = True,
+    choices: List[int] = [],
+    default: Optional[int] = None,
+    max: Optional[int] = None,
+    min: Optional[int] = None
+) -> ast.Column:
     """
     An ``INTEGER`` column.
     """
@@ -78,7 +108,7 @@ def integer(name, *, required=True, choices=[], default=None, max=None, min=None
     )
 
 
-def primary_key(name, *, autoincrement=True):
+def primary_key(name: str, *, autoincrement: bool = True) -> ast.Column:
     """
     A primary key column.
     """
@@ -88,7 +118,13 @@ def primary_key(name, *, autoincrement=True):
     return _base(name, "INTEGER", required=True, constraints=constraints)
 
 
-def text(name, *, required=True, choices=[], default=None):
+def text(
+    name: str,
+    *,
+    required: bool = True,
+    choices: List[str] = [],
+    default: Optional[str] = None
+) -> ast.Column:
     """
     A ``TEXT`` column.
 
@@ -119,14 +155,18 @@ def text(name, *, required=True, choices=[], default=None):
     )
 
 
-def time(name, *, required=True, default=None):
+def time(
+    name: str, *, required: bool = True, default: Optional[str] = None
+) -> ast.Column:
     """
     A ``TIME`` column for values in HH:MM:SS format
     """
     return _base(name, "TIME", required=required, default=default)
 
 
-def timestamp(name, *, required=True, default=None):
+def timestamp(
+    name: str, *, required: bool = True, default: Optional[str] = None
+) -> ast.Column:
     """
     A ``TIMESTAMP`` column for values in ISO 8601 format, e.g.
     ``2021-01-01 01:00:00.00``.
@@ -138,17 +178,19 @@ def _not_null_constraint():
     return ast.NotNullConstraint()
 
 
-def _not_empty_constraint(name):
+def _not_empty_constraint(name: str):
     return _check_operator_constraint(name, "!=", ast.String(""))
 
 
-def _check_operator_constraint(name, operator, value):
+def _check_operator_constraint(name: str, operator: str, value):
     return ast.CheckConstraint(
         expr=ast.Infix(operator=operator, left=ast.Identifier(name), right=value)
     )
 
 
-def _choices_constraint(name, choices, *, required, text=False):
+def _choices_constraint(
+    name: str, choices: List[Any], *, required: bool, text: bool = False
+):
     if required:
         return ast.CheckConstraint(_choices_as_sql(name, choices))
     else:
@@ -162,7 +204,7 @@ def _choices_constraint(name, choices, *, required, text=False):
         )
 
 
-def _choices_as_sql(name, choices):
+def _choices_as_sql(name: str, choices: List[Any]):
     return ast.Infix(
         "IN",
         ast.Identifier(name),
@@ -170,7 +212,7 @@ def _choices_as_sql(name, choices):
     )
 
 
-def _convert_default(default):
+def _convert_default(default: Any):
     if default is not None:
         if isinstance(default, str):
             return ast.String(default)
