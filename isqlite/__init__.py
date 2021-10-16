@@ -12,7 +12,6 @@ from .database import (
     Database,
     ISqliteApiError,
     ISqliteError,
-    PrintDebugger,
     Table,
     TableDoesNotExistError,
 )

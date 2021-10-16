@@ -548,7 +548,7 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
         db_path,
         readonly=not write,
         transaction=False,
-        debugger=debug,
+        debug=debug,
     ) as db:
         diff = db.diff(schema, table=table)
         if not diff:

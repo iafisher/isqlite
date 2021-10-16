@@ -42,7 +42,7 @@ class Database:
         path,
         *,
         transaction=True,
-        debugger=None,
+        debug=False,
         readonly=None,
         uri=False,
         cached_statements=100,
@@ -71,12 +71,8 @@ class Database:
                     with db.transaction():
                         ...
 
-        :param debugger: If true, each SQL statement executed will be printed to
-            standard output. You can also pass an object of a class which defines
-            ``execute(sql, values)`` and ``executemany(sql, values)`` methods; these
-            methods will be invoked each time the corresponding method is invoked on the
-            underlying SQLite connection, and the debugger class can use this
-            information for debugging, profiling, or whatever else.
+        :param debug: If true, each SQL statement executed will be printed to standard
+            output.
         :param readonly: If true, the database will be opened in read-only mode. This
             option is incompatibility with ``uri=True``; if you need to pass a URI, then
             append ``?mode=ro`` to make it read-only.
@@ -123,9 +119,7 @@ class Database:
             cached_statements=cached_statements,
         )
 
-        if debugger is True:
-            debugger = PrintDebugger()
-        self.debugger = debugger
+        self.debugger = Debugger() if debug else None
 
         self.connection.row_factory = ordered_dict_row_factory
         self.cursor = self.connection.cursor()
@@ -1133,7 +1127,7 @@ class AutoTable(Table):
         super().__init__(name, columns)
 
 
-class PrintDebugger:
+class Debugger:
     def execute(self, sql, values):
         self._execute("Execute", sql, values)
 
