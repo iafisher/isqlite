@@ -36,5 +36,8 @@ def init(precommit):
     # Run the test suite.
     precommit.check(checks.Command("UnitTests", ["./do", "test"]))
 
-    # Run a custom command on each file.
-    # precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True))
+    precommit.check(
+        checks.Command(
+            "PythonTypes", [".venv/bin/mypy", "--ignore-missing-imports", "isqlite"]
+        )
+    )

@@ -1,6 +1,7 @@
 import collections
 import sqlite3
 import textwrap
+from typing import Optional
 
 import sqliteparser
 from sqliteparser import quote
@@ -1111,7 +1112,7 @@ def is_foreign_key_column(column: sqliteparser.ast.Column) -> bool:
     )
 
 
-def get_foreign_key_model(column: sqliteparser.ast.Column) -> str:
+def get_foreign_key_model(column: sqliteparser.ast.Column) -> Optional[str]:
     for constraint in column.definition.constraints:
         if isinstance(constraint, sqliteparser.ast.ForeignKeyConstraint):
             return constraint.foreign_table
