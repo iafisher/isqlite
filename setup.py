@@ -22,7 +22,6 @@ setup(
         "click >= 8.0.0",
         "sqliteparser >= 0.2.5",
         "tabulate >= 0.8.9",
-        "xcli >= 0.2",
     ],
     project_urls={"Source": "https://github.com/iafisher/isqlite"},
     classifiers=[
