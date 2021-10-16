@@ -15,10 +15,6 @@ AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
 AUTO_TIMESTAMP_UPDATE_DEFAULT = ("last_updated_at",)
 
 
-# Sentinel object to detect keyword arguments that were not specified by the caller.
-_Unset = object()
-
-
 class Database:
     """
     A class to represent a connection to a SQLite database. Typically used as a context
@@ -49,7 +45,7 @@ class Database:
         debugger=None,
         readonly=None,
         uri=False,
-        cached_statements=_Unset,
+        cached_statements=100,
         create_auto_timestamp_columns=[],
         update_auto_timestamp_columns=[],
     ):
@@ -117,24 +113,15 @@ class Database:
         self.create_auto_timestamp_columns = create_auto_timestamp_columns
         self.update_auto_timestamp_columns = update_auto_timestamp_columns
 
-        # We have to do this instead of passing the keyword arguments directly to
-        # `sqlite3.connect` because we conditionally pass `cached_statements` if the
-        # caller of `Database.__init__` gave it an explicit value.
-        #
-        # We _could_ use the current `sqlite3` default of 100 as the default value of
-        # the argument, but then if `sqlite3` ever changed its default, `isqlite` would
-        # have to be updated.
-        kwargs = dict(
+        self.connection = sqlite3.connect(
+            path,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
             uri=True,
+            # Setting `isolation_level` to None disables quirky behavior around
+            # transactions, per https://stackoverflow.com/questions/30760997/
             isolation_level=None,
+            cached_statements=cached_statements,
         )
-        if cached_statements is not _Unset:
-            kwargs["cached_statements"] = cached_statements
-
-        # Setting `isolation_level` to None disables quirky behavior around
-        # transactions, per https://stackoverflow.com/questions/30760997/
-        self.connection = sqlite3.connect(path, **kwargs)
 
         if debugger is True:
             debugger = PrintDebugger()
@@ -327,7 +314,7 @@ class Database:
         )
         return result[0]
 
-    def create(self, table, data, *, auto_timestamp_columns=_Unset):
+    def create(self, table, data, *, auto_timestamp_columns=False):
         """
         Insert a new row.
 
@@ -337,11 +324,13 @@ class Database:
         :param data: The row to insert, as a dictionary from column names to column
             values.
         :param auto_timestamp_columns: A list of columns into which to insert the
-            current date and time, as an ISO 8601 timestamp. Defaults to the value of
-            ``create_auto_timestamp_columns`` passed to ``__init__`` if unset.
+            current date and time, as an ISO 8601 timestamp. If true, it defaults to
+            the value of ``create_auto_timestamp_columns`` passed to ``__init__`.
         """
-        if auto_timestamp_columns is _Unset:
+        if auto_timestamp_columns is True:
             auto_timestamp_columns = self.create_auto_timestamp_columns
+        elif auto_timestamp_columns is False:
+            auto_timestamp_columns = []
 
         keys = list(data.keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
@@ -366,7 +355,7 @@ class Database:
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_many(self, table, data, *, auto_timestamp_columns=[]):
+    def create_many(self, table, data, *, auto_timestamp_columns=False):
         """
         Insert multiple rows at once.
 
@@ -380,8 +369,10 @@ class Database:
         if not data:
             return
 
-        if auto_timestamp_columns is _Unset:
+        if auto_timestamp_columns is True:
             auto_timestamp_columns = self.create_auto_timestamp_columns
+        elif auto_timestamp_columns is False:
+            auto_timestamp_columns = []
 
         keys = list(data[0].keys())
         placeholders = ",".join("?" for _ in range(len(keys)))
@@ -412,7 +403,7 @@ class Database:
         *,
         where=None,
         values={},
-        auto_timestamp_columns=_Unset,
+        auto_timestamp_columns=False,
     ):
         """
         Update an existing row.
@@ -426,11 +417,12 @@ class Database:
         :param values: Same as for ``Database.list``.
         :param auto_timestamp_columns: Same as for ``Database.create``, except that if
             the same column appears in both ``values`` and ``auto_timestamp_columns``,
-            the timestamp will be inserted instead of the value. Defaults to the value
-            of ``update_auto_timestamp_columns`` passed to ``__init__`` if unset.
+            the timestamp will be inserted instead of the value.
         """
-        if auto_timestamp_columns is _Unset:
+        if auto_timestamp_columns is True:
             auto_timestamp_columns = self.update_auto_timestamp_columns
+        elif auto_timestamp_columns is False:
+            auto_timestamp_columns = []
 
         updates = []
         for key, value in data.items():
