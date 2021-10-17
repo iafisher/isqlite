@@ -388,6 +388,39 @@ class DatabaseTests(unittest.TestCase):
         professor_after.pop("is_tenured")
         self.assertEqual(professor_before, professor_after)
 
+    @unittest.skip("not working")
+    def test_rename_column_with_constraint(self):
+        # Test renaming a column that also has a CHECK constraint with the column's
+        # name:
+        #
+        #     first_name TEXT NOT NULL CHECK(first_name != '')
+        #
+        # to
+        #
+        #     legal_name TEXT NOT NULL CHECK(legal_name != '')
+        professor_before = self.db.get("professors")
+
+        with self.db.transaction(disable_foreign_keys=True):
+            self.db.rename_column("professors", "first_name", "given_name")
+
+        professor_after = self.db.get("professors")
+        self.assertNotIn("first_name", professor_after)
+        self.assertEqual(professor_before["first_name"], professor_after["given_name"])
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            # This should raise an IntegrityError because the CHECK constraint should
+            # prevent `given_name` from being empty.
+            self.db.create(
+                "professors",
+                {
+                    "given_name": "",
+                    "last_name": "Wadsworth",
+                    "department": 1,
+                    "tenured": False,
+                    "retired": False,
+                },
+            )
+
     def test_rename_column_with_non_existent_column(self):
         with self.assertRaises(ColumnDoesNotExistError):
             self.db.alter_column("students", "dormitory", "dormitory_name")
