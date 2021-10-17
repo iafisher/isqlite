@@ -756,15 +756,13 @@ class Database:
             name = table_in_schema.name
             if name in tables_in_db:
                 columns_in_database = tables_in_db.pop(table_in_schema.name).columns
-                columns_in_schema = [
-                    column for column in table_in_schema.columns.values()
-                ]
+                columns_in_schema = [column for column in table_in_schema.columns]
                 self._diff_table(diff, name, columns_in_database, columns_in_schema)
             else:
                 diff[table_in_schema.name].append(
                     migrations.CreateTableMigration(
                         table_in_schema.name,
-                        [str(column) for column in table_in_schema.columns.values()],
+                        [str(column) for column in table_in_schema.columns],
                     )
                 )
 

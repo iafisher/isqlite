@@ -1,5 +1,5 @@
 import collections
-from typing import List, Union
+from typing import Dict, List, Union
 
 import sqliteparser
 
@@ -12,23 +12,39 @@ class Table:
     A class to represent a SQL table as part of a schema defined in Python.
     """
 
+    name: str
+    _columns: Dict[str, sqliteparser.ast.Column]
+
     def __init__(
         self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
     ) -> None:
         self.name = name
-        self.columns = collections.OrderedDict()
+        self._columns = collections.OrderedDict()
 
         for column in columns:
             if isinstance(column, str):
                 column = sqliteparser.parse_column(column)
 
-            self.columns[column.name] = column
+            self._columns[column.name] = column
 
     @classmethod
     def from_create_table_statement(
         cls, stmt: sqliteparser.ast.CreateTableStatement
     ) -> "Table":
         return cls(stmt.name, stmt.columns)
+
+    def __getitem__(self, key: str) -> sqliteparser.ast.Column:
+        return self._columns[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._columns
+
+    @property
+    def columns(self) -> List[sqliteparser.ast.Column]:
+        """
+        Returns the columns in the table as a list.
+        """
+        return list(self._columns.values())
 
 
 class AutoTable(Table):
@@ -57,6 +73,8 @@ class Schema:
     """
     A class to represent an entire database schema.
     """
+
+    _tables: Dict[str, Table]
 
     def __init__(self, tables: List[Table]) -> None:
         self._tables = collections.OrderedDict((table.name, table) for table in tables)
