@@ -47,7 +47,7 @@ class MigrateTests(TemporaryFileTestCase):
             self.db_file_path,
             "tests/schema.py",
             None,
-            write=True,
+            no_confirm=True,
             no_backup=True,
             debug=False,
         )
@@ -100,7 +100,7 @@ class MigrateTests(TemporaryFileTestCase):
             self.db_file_path,
             "tests/schema_altered.py",
             None,
-            write=True,
+            no_confirm=True,
             no_backup=True,
             debug=False,
         )

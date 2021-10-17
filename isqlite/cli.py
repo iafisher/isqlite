@@ -518,10 +518,10 @@ def main_schema(db_path, table=None, *, as_python=False):
 @click.argument("schema_path")
 @click.option("--table", default=None)
 @click.option(
-    "--write",
+    "--no-confirm",
     is_flag=True,
     default=False,
-    help="Perform the migration. By default, migrate will only do a dry run.",
+    help="Perform the migration without requiring human confirmation.",
 )
 @click.option(
     "--no-backup",
@@ -542,20 +542,15 @@ def main_migrate_wrapper(*args, **kwargs):
     main_migrate(*args, **kwargs)
 
 
-def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
+def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
     schema = get_schema_from_path(schema_path)
-    with Database(
-        db_path,
-        readonly=not write,
-        transaction=False,
-        debug=debug,
-    ) as db:
+    with Database(db_path, transaction=False, debug=debug) as db:
         diff = db.diff(schema, table=table)
         if not diff:
             print("Nothing to migrate: database matches schema.")
             return
 
-        if write and not no_backup:
+        if not no_backup:
             _, backup_name = tempfile.mkstemp(
                 prefix="isqlite-backup-", suffix=".sqlite3"
             )
@@ -587,35 +582,13 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
                 for op in table_diff:
                     print(f"- {op}")
 
-        if write:
-            try:
-                db.apply_diff(diff)
-            except Exception:
-                traceback.print_exc()
-
-                print()
-                print("Migration rolled back due to Python exception.")
-                sys.exit(2)
-            finally:
-                if not no_backup:
-                    print()
-                    print(f"Backup of database before migration saved at {backup_name}")
-
         print()
         print()
         if tables_created > 0:
-            if write:
-                print("Created ", end="")
-            else:
-                print("Would have created ", end="")
-            print(f"{tables_created} table(s).")
+            print(f"Will create {tables_created} table(s).", end="")
 
         if tables_dropped > 0:
-            if write:
-                print("Dropped ", end="")
-            else:
-                print("Would have dropped ", end="")
-            print(f"{tables_dropped} table(s).")
+            print(f"Will drop {tables_dropped} table(s).", end="")
 
         if diff:
             total_ops = (
@@ -626,17 +599,32 @@ def main_migrate(db_path, schema_path, table, *, write, no_backup, debug):
             total_tables = len(diff) - tables_created - tables_dropped
 
             if total_ops > 0:
-                if write:
-                    print("Performed ", end="")
-                else:
-                    print("Would have performed ", end="")
-                print(f"{total_ops} operation(s) on {total_tables} table(s).")
+                print(
+                    f"Will perform {total_ops} operation(s) on {total_tables} table(s)."
+                )
 
-        if not write:
+        if not no_confirm:
             print()
+            if not click.confirm("Do you wish to perform the migration? "):
+                print()
+                print("Migration aborted.")
+                sys.exit(2)
+
+        try:
+            db.apply_diff(diff)
+        except Exception:
+            traceback.print_exc()
+
+            print()
+            print("Migration rolled back due to Python exception.")
+            sys.exit(2)
+
+        if no_backup:
+            print("Migration completed successfully.")
+        else:
             print(
-                "NOTE: No changes were made. To actually perform this migration, re-run"
-                + " the command with the --write flag."
+                "Migration completed successfully. "
+                + f"Backup of database before migration saved at {backup_name}."
             )
 
 
