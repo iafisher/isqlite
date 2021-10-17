@@ -1175,6 +1175,10 @@ def get_foreign_key_model(column: sqliteparser.ast.Column) -> Optional[str]:
 
 
 class Table:
+    """
+    A class to represent a SQL table as part of a schema defined in Python.
+    """
+
     def __init__(
         self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
     ) -> None:
@@ -1189,6 +1193,11 @@ class Table:
 
 
 class AutoTable(Table):
+    """
+    An extension of the ``Table`` class which automatically creates a primary-key column
+    called ``id`` and timestamp columns called ``created_at`` and ``last_updated_at``.
+    """
+
     def __init__(
         self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
     ) -> None:

@@ -10,6 +10,14 @@ API reference
     :member-order: bysource
 
 
+Table definitions
+-----------------
+
+.. autoclass:: isqlite.Table
+
+.. autoclass:: isqlite.AutoTable
+
+
 Column functions
 ----------------
 
