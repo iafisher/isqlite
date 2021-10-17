@@ -1,80 +1,59 @@
 import unittest
 
-from isqlite import AutoTable, Database, Schema, Table, columns
+from isqlite import AutoTable, Table, columns
 from isqlite.migrations import (
     AddColumnMigration,
     RenameColumnMigration,
     ReorderColumnsMigration,
 )
+from isqlite.schema import diff_tables
 
 
 class DiffTests(unittest.TestCase):
     def test_diff_column_renamed(self):
-        schema_before = Schema(
+        table_before = Table(
+            "employees",
             [
-                Table(
-                    "employees",
-                    [
-                        columns.text("name", required=True),
-                    ],
-                ),
-            ]
+                columns.text("name", required=True),
+            ],
         )
-        schema_after = Schema(
+        table_after = Table(
+            "employees",
             [
-                Table(
-                    "employees",
-                    [
-                        columns.text("legal_name", required=True),
-                    ],
-                ),
-            ]
+                columns.text("legal_name", required=True),
+            ],
         )
 
-        with Database(":memory:", transaction=False) as db:
-            db.migrate(schema_before)
+        diff = diff_tables(table_before, table_after)
 
-            diff = db.diff(schema_after)
-
-            self.assertEqual(
-                diff, [RenameColumnMigration("employees", "name", "legal_name")]
-            )
+        self.assertEqual(
+            diff, [RenameColumnMigration("employees", "name", "legal_name")]
+        )
 
     def test_diff_column_added(self):
-        schema_before = Schema(
+        table_before = AutoTable(
+            "events",
             [
-                AutoTable(
-                    "events",
-                    [
-                        "start DATE",
-                    ],
-                ),
-            ]
+                "start DATE",
+            ],
         )
-        schema_after = Schema(
+        table_after = AutoTable(
+            "events",
             [
-                AutoTable(
-                    "events",
-                    [
-                        "start DATE",
-                        "end DATE",
-                    ],
-                ),
-            ]
+                "start DATE",
+                "end DATE",
+            ],
         )
 
-        with Database(":memory:", transaction=False) as db:
-            db.migrate(schema_before)
+        diff = diff_tables(table_before, table_after)
 
-            diff = db.diff(schema_after)
-
-            self.assertEqual(
-                diff,
-                [
-                    AddColumnMigration("events", '"end"  DATE'),
-                    ReorderColumnsMigration(
-                        "events",
-                        ["id", "start", "end", "created_at", "last_updated_at"],
-                    ),
-                ],
-            )
+        self.assertEqual(
+            diff,
+            [
+                AddColumnMigration("events", '"end"  DATE'),
+                ReorderColumnsMigration(
+                    "events",
+                    ["id", "start", "end", "created_at", "last_updated_at"],
+                ),
+            ],
+        )

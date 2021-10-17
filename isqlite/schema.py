@@ -1,10 +1,15 @@
 import collections
-from typing import Dict, List, Union
+from typing import Dict, List, Set, Union
 
+import attr
 import sqliteparser
 
+from . import migrations
 from .columns import primary_key as primary_key_column
 from .columns import timestamp as timestamp_column
+
+# Type alias
+Diff = List[migrations.MigrateOperation]
 
 
 class Table:
@@ -98,3 +103,154 @@ class Schema:
         Returns the names of the tables in the schema as a list.
         """
         return list(self._tables.keys())
+
+
+def diff_schemas(old_schema: Schema, new_schema: Schema) -> Diff:
+    diff = []
+    for new_table in new_schema.tables:
+        name = new_table.name
+        if name in old_schema:
+            diff.extend(diff_tables(old_schema[name], new_table))
+        else:
+            diff.append(
+                migrations.CreateTableMigration(
+                    name,
+                    [str(column) for column in new_table.columns],
+                )
+            )
+
+    for name in set(old_schema.table_names) - set(new_schema.table_names):
+        diff.append(migrations.DropTableMigration(name))
+
+    return diff
+
+
+def diff_tables(old_table: Table, new_table: Table) -> Diff:
+    table_name = new_table.name
+    diff: Diff = []
+
+    old_columns_to_index_map = {
+        column.name: i for i, column in enumerate(old_table.columns)
+    }
+    renamed_columns: Set[str] = set()
+    reordered = False
+    for new_index, column in enumerate(new_table.columns):
+        old_index = old_columns_to_index_map.get(column.name)
+        if old_index is None:
+            if new_index < len(old_table.columns) and is_renamed_column(
+                column, old_table.columns[new_index]
+            ):
+                old_column_name = old_table.columns[new_index].name
+                renamed_columns.add(old_column_name)
+                diff.append(
+                    migrations.RenameColumnMigration(
+                        table_name, old_column_name, column.name
+                    )
+                )
+            else:
+                diff.append(migrations.AddColumnMigration(table_name, str(column)))
+            continue
+
+        if old_index != new_index:
+            reordered = True
+
+        old_column = old_table.columns[old_index]
+        if old_column != column:
+            diff.append(migrations.AlterColumnMigration(table_name, column))
+
+    new_columns_to_index_map = {
+        column.name: i for i, column in enumerate(new_table.columns)
+    }
+    for column in old_table.columns:
+        if (
+            column.name not in new_columns_to_index_map
+            and column.name not in renamed_columns
+        ):
+            diff.append(migrations.DropColumnMigration(table_name, column.name))
+
+    if reordered:
+        diff.append(
+            migrations.ReorderColumnsMigration(
+                table_name, [column.name for column in new_table.columns]
+            )
+        )
+
+    return diff
+
+
+def is_renamed_column(
+    column_in_schema: sqliteparser.ast.Column,
+    column_in_database: sqliteparser.ast.Column,
+) -> bool:
+    return column_in_schema == rename_column(
+        column_in_database, column_in_database.name, column_in_schema.name
+    )
+
+
+def rename_column(
+    column: sqliteparser.ast.Column,
+    old_name: str,
+    new_name: str,
+) -> sqliteparser.ast.ColumnDefinition:
+    renamer = ColumnRenamer(old_name, new_name)
+    return renamer.rename(column)
+
+
+class ColumnRenamer:
+    """
+    A class implementing the visitor pattern which renames all instances of a column's
+    name in the column's definition.
+    """
+
+    def __init__(self, old_name, new_name):
+        self.old_name = old_name
+        self.new_name = new_name
+
+    def rename(self, node):
+        if node is None:
+            return None
+
+        return node.accept(self)
+
+    def visit_column(self, node):
+        return attr.evolve(
+            node,
+            name=self.new_name if node.name == self.old_name else node.name,
+            definition=self.rename(node.definition),
+        )
+
+    def visit_column_definition(self, node):
+        return attr.evolve(node, constraints=list(map(self.rename, node.constraints)))
+
+    def visit_check_constraint(self, node):
+        return attr.evolve(node, expr=self.rename(node.expr))
+
+    def visit_named_constraint(self, node):
+        return attr.evolve(node, constraint=self.rename(node.constraint))
+
+    def visit_foreign_key_constraint(self, node):
+        columns = [
+            self.new_name if column == self.old_name else column
+            for column in node.columns
+        ]
+        return attr.evolve(node, columns=columns)
+
+    def visit_generated_column_constraint(self, node):
+        return attr.evolve(node, expression=self.rename(node.expression))
+
+    def visit_infix(self, node):
+        return attr.evolve(
+            node, left=self.rename(node.left), right=self.rename(node.right)
+        )
+
+    def visit_expression_list(self, node):
+        return attr.evolve(node, values=list(map(self.rename, node.values)))
+
+    def visit_identifier(self, node):
+        if node.value == self.old_name:
+            return sqliteparser.ast.Identifier(self.new_name)
+        else:
+            return node
+
+    def visit_default(self, node):
+        return node
