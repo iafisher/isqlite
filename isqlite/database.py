@@ -1187,7 +1187,9 @@ def is_renamed_column(
     column_in_schema: sqliteparser.ast.Column,
     column_in_database: sqliteparser.ast.Column,
 ) -> bool:
-    return column_in_schema.definition == column_in_database.definition
+    return column_in_schema == rename_column(
+        column_in_database, column_in_database.name, column_in_schema.name
+    )
 
 
 def rename_column(

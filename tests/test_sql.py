@@ -476,7 +476,6 @@ class DatabaseTests(unittest.TestCase):
 
 
 class DiffTests(unittest.TestCase):
-    @unittest.skip("not working")
     def test_diff_column_renamed(self):
         schema_before = [
             Table(
