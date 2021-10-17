@@ -7,14 +7,13 @@ from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
 from . import columns, migrations
 from .database import (
-    AutoTable,
     ColumnDoesNotExistError,
     Database,
     ISqliteApiError,
     ISqliteError,
-    Table,
     TableDoesNotExistError,
 )
+from .schema import AutoTable, Table
 
 
 def sqlite3_convert_boolean(b):
