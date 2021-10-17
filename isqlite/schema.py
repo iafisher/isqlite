@@ -1,5 +1,5 @@
 import collections
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Union
 
 import attr
 import sqliteparser
@@ -142,7 +142,7 @@ def diff_tables(old_table: Table, new_table: Table) -> Diff:
     old_columns_to_index_map = {
         column.name: i for i, column in enumerate(old_table.columns)
     }
-    renamed_columns: Set[str] = set()
+    renamed_columns = set()
     reordered = False
     for new_index, column in enumerate(new_table.columns):
         old_index = old_columns_to_index_map.get(column.name)
@@ -175,19 +175,26 @@ def diff_tables(old_table: Table, new_table: Table) -> Diff:
     new_columns_to_index_map = {
         column.name: i for i, column in enumerate(new_table.columns)
     }
+    dropped_columns = set()
     for column in old_table.columns:
         if (
             column.name not in new_columns_to_index_map
             and column.name not in renamed_columns
         ):
+            dropped_columns.add(column.name)
             diff.append(migrations.DropColumnMigration(table_name, column.name))
 
     if reordered:
-        diff.append(
-            migrations.ReorderColumnsMigration(
-                table_name, [column.name for column in new_table.columns]
+        reordered_columns = [column.name for column in new_table.columns]
+        old_columns_except_dropped = [
+            column.name
+            for column in old_table.columns
+            if column.name not in dropped_columns
+        ]
+        if reordered_columns != old_columns_except_dropped:
+            diff.append(
+                migrations.ReorderColumnsMigration(table_name, reordered_columns)
             )
-        )
 
     return diff
 

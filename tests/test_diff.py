@@ -100,14 +100,10 @@ class DiffTests(unittest.TestCase):
 
         diff = diff_tables(table_before, table_after)
 
-        # TODO(#57): Reorder columns operation is unnecessary.
         self.assertEqual(
             diff,
             [
                 DropColumnMigration("t", "description"),
-                ReorderColumnsMigration(
-                    "t", ["id", "title", "created_at", "last_updated_at"]
-                ),
             ],
         )
 
