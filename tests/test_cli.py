@@ -174,7 +174,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             --------------  ---------------  -------
             Blood Meridian  Cormac McCarthy
 
-            1 row(s).
+            1 row.
             """
             ),
         )
@@ -204,7 +204,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             Blood Meridian  Cormac McCarthy
             Beowulf         unknown
 
-            2 row(s).
+            2 rows.
             """
             ),
         )
@@ -248,7 +248,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             --------------
             Blood Meridian
 
-            1 row(s).
+            1 row.
             """
             ),
         )
@@ -305,7 +305,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             --------------  ---------------
             Blood Meridian  Cormac McCarthy
 
-            1 row(s).
+            1 row.
             """
             ),
         )
@@ -336,7 +336,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ---------------  --------------
             Cormac McCarthy  Blood Meridian
 
-            1 row(s).
+            1 row.
             """
             ),
         )
@@ -355,7 +355,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             --------------  ---------------
             Blood Meridian  Cormac McCarthy
 
-            1 row(s).
+            1 row.
             """
             ),
         )
@@ -378,7 +378,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
             --------------  -----------
             Blood Meridian  C. McCarthy
 
-            1 row(s).
+            1 row.
             """
             ),
         )

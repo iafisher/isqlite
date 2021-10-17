@@ -216,9 +216,9 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
             if not no_confirm:
                 n = db.count(table, where=where)
                 if not where:
-                    msg = f"Are you sure you wish to delete ALL {n} row(s) from {table!r}?"
+                    msg = f"Are you sure you wish to delete ALL {pluralize(n, 'row')} from {table!r}?"
                 else:
-                    msg = f"Are you sure you wish to delete {n} row(s) from {table!r}?"
+                    msg = f"Are you sure you wish to delete {pluralize(n, 'row')} from {table!r}?"
 
                 if not click.confirm(msg):
                     print()
@@ -232,7 +232,67 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
 
             db.delete(table, where=where)
             print()
-            print(f"{n} row(s) from table {table!r} deleted.")
+            print(f"{pluralize(n, 'row')} from table {table!r} deleted.")
+
+
+@cli.command(name="diff")
+@click.argument("db_path")
+@click.argument("schema_path")
+@click.option("--table", default=None)
+def main_diff_wrapper(*args, **kwargs):
+    """
+    Diff the database against the Python schema.
+    """
+    main_diff(*args, **kwargs)
+
+
+def main_diff(db_path, schema_path, table):
+    schema = get_schema_from_path(schema_path)
+    with Database(db_path, readonly=True) as db:
+        _diff(db, schema, table)
+
+
+def _diff(db, schema, table):
+    diff = db.diff(schema, table=table)
+    if not diff:
+        print("Nothing to migrate: database matches schema.")
+        return None
+
+    tables_created = 0
+    tables_dropped = 0
+    columns_dropped = 0
+    printed = False
+    grouped_diff = group_diff_by_table(diff)
+    for table, table_diff in sorted(grouped_diff.items(), key=lambda kv: kv[0]):
+        if printed:
+            print()
+        else:
+            printed = True
+
+        print(f"Table {blue(table)}")
+        for op in table_diff:
+            if isinstance(op, migrations.DropColumnMigration):
+                columns_dropped += 1
+            elif isinstance(op, migrations.DropTableMigration):
+                tables_dropped += 1
+            elif isinstance(op, migrations.CreateTableMigration):
+                tables_created += 1
+
+            print(f"- {op}")
+
+    print()
+    print()
+    print("Summary")
+    print(f"- {blue(pluralize(len(grouped_diff), 'table'))} affected.")
+    print(f"- {blue(pluralize(len(diff), 'operation'))} in total.")
+    if tables_created > 0:
+        print(f"- {blue(pluralize(tables_created, 'table'))} created.")
+    if tables_dropped > 0:
+        print(f"- {red(pluralize(tables_dropped, 'table'))} dropped.")
+    if columns_dropped > 0:
+        print(f"- {red(pluralize(columns_dropped, 'column'))} dropped.")
+
+    return (diff, tables_dropped or columns_dropped)
 
 
 @cli.command(name="drop-column")
@@ -257,7 +317,9 @@ def main_drop_column(db_path, table, column, *, no_confirm=False):
         with Database(db_path) as db:
             count = db.count(table)
 
-            print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+            print(
+                f"WARNING: Table {table!r} contains {pluralize(count, 'row')} of data."
+            )
             print()
             if not click.confirm("Are you sure you wish to drop this column?"):
                 print()
@@ -290,7 +352,9 @@ def main_drop_table(db_path, table, *, no_confirm=False):
     with Database(db_path) as db:
         if not no_confirm:
             count = db.count(table)
-            print(f"WARNING: Table {table!r} contains {count} row(s) of data.")
+            print(
+                f"WARNING: Table {table!r} contains {pluralize(count, 'row')} of data."
+            )
             print()
             if not click.confirm("Are you sure you wish to drop this table?"):
                 print()
@@ -545,67 +609,26 @@ def main_migrate_wrapper(*args, **kwargs):
 def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
     schema = get_schema_from_path(schema_path)
     with Database(db_path, transaction=False, debug=debug) as db:
-        diff = db.diff(schema, table=table)
-        if not diff:
-            print("Nothing to migrate: database matches schema.")
+        diff, data_dropped = _diff(db, schema, table)
+        if diff is None:
             return
+
+        if not no_confirm:
+            prompt = "Do you wish to perform the migration?"
+            if data_dropped:
+                prompt += red(" Some data may be lost.")
+
+            print()
+            if not click.confirm(prompt):
+                print()
+                print("Migration aborted.")
+                sys.exit(2)
 
         if not no_backup:
             _, backup_name = tempfile.mkstemp(
                 prefix="isqlite-backup-", suffix=".sqlite3"
             )
             shutil.copy2(db_path, backup_name)
-
-        tables_created = 0
-        tables_dropped = 0
-        printed = False
-        grouped_diff = group_diff_by_table(diff)
-        for table, table_diff in grouped_diff.items():
-            if printed:
-                print()
-            else:
-                printed = True
-
-            if len(table_diff) == 1 and isinstance(
-                table_diff[0], migrations.CreateTableMigration
-            ):
-                op = table_diff[0]
-                print(f"Create table {op.table_name}")
-                tables_created += 1
-            elif len(table_diff) == 1 and isinstance(
-                table_diff[0], migrations.DropTableMigration
-            ):
-                op = table_diff[0]
-                print(f"Drop table {op.table_name}")
-                tables_dropped += 1
-            else:
-                print(f"Table {table}")
-                for op in table_diff:
-                    print(f"- {op}")
-
-        print()
-        print()
-        if tables_created > 0:
-            print(f"Will create {tables_created} table(s).", end="")
-
-        if tables_dropped > 0:
-            print(f"Will drop {tables_dropped} table(s).", end="")
-
-        if diff:
-            total_ops = len(diff) - tables_created - tables_dropped
-            total_tables = len(grouped_diff) - tables_created - tables_dropped
-
-            if total_ops > 0:
-                print(
-                    f"Will perform {total_ops} operation(s) on {total_tables} table(s)."
-                )
-
-        if not no_confirm:
-            print()
-            if not click.confirm("Do you wish to perform the migration? "):
-                print()
-                print("Migration aborted.")
-                sys.exit(2)
 
         try:
             db.apply_diff(diff)
@@ -823,7 +846,7 @@ def prettyprint_rows(rows, *, columns=[], hide=[], page=1):
 
     if table_rows:
         print()
-        print(f"{len(table_rows)} row(s).")
+        print(f"{pluralize(len(table_rows), 'row')}.")
 
     if overflow or page > 1:
         print()
@@ -897,6 +920,21 @@ def group_diff_by_table(diff):
     for op in diff:
         diff_map[op.table_name].append(op)
     return diff_map
+
+
+def red(s):
+    return click.style(s, fg="red")
+
+
+def blue(s):
+    return click.style(s, fg="blue")
+
+
+def pluralize(n, word):
+    if n == 1:
+        return f"{n} {word}"
+    else:
+        return f"{n} {word}s"
 
 
 def report_error_and_exit(message):
