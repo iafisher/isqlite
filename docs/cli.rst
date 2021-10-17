@@ -28,14 +28,6 @@ Usage::
    isqlite count <database> <table> --where <constraint>
 
 
-``create``
-----------
-
-Usage::
-
-   isqlite create <database> <table> <col1>=<val1> <col2>=<val2> ...
-
-
 ``create-table``
 ----------------
 
@@ -80,14 +72,12 @@ Usage::
 Unlike ``Database.get``, the ``get`` subcommand only supports fetching by primary key.
 
 
-``list``
---------
+``insert``
+----------
 
 Usage::
 
-   isqlite list <database> <table>
-   isqlite list <database> <table> --where <constraint>
-   isqlite list <database> <table> --search <search query>
+   isqlite insert <database> <table> <col1>=<val1> <col2>=<val2> ...
 
 
 ``migrate``
@@ -142,7 +132,17 @@ Usage::
 
    isqlite search <database> <table> <search query>
 
-Alias of ``isqlite list <database> <table> --search <search query>``
+Alias of ``isqlite select <database> <table> --search <search query>``
+
+
+``select``
+----------
+
+Usage::
+
+   isqlite select <database> <table>
+   isqlite select <database> <table> --where <constraint>
+   isqlite select <database> <table> --search <search query>
 
 
 ``sql``

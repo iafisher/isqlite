@@ -6,14 +6,14 @@ isqlite is an improved Python interface to SQLite. It has a more convenient API,
 from isqlite import Database
 
 with Database(":memory:") as db:
-    pk = db.create("employees", {"name": "John Doe", "age": 30})
+    pk = db.insert("employees", {"name": "John Doe", "age": 30})
 
     person = db.get_by_pk("employees", pk)
     print(person["name"], person["age"])
 
     db.update_by_pk("employees", pk, {"age": 35})
 
-    employees = db.list(
+    employees = db.select(
         "employees",
         where="name LIKE :name_pattern AND age > 40",
         values={"name_pattern": "John%"},

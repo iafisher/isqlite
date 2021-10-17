@@ -30,29 +30,29 @@ Like ``sqlite3.connect``, the ``Database`` constructor accepts ``":memory:"`` as
 Reading rows
 ------------
 
-To retrieve a list of rows from the database, use ``Database.list``::
+To retrieve a list of rows from the database, use ``Database.select``::
 
-    rows = db.list("employees")
+    rows = db.select("employees")
 
 This will return every row in the table. isqlite returns rows as ``OrderedDict`` objects, so if your table has an ``id`` column, you could access it as ``row["id"]``. Since the dictionaries are ordered, you can iterate over the keys in the same order that they appear in the database schema.
 
-To filter the list of rows, use the ``where`` parameter to ``Database.list``::
+To filter the list of rows, use the ``where`` parameter to ``Database.select``::
 
-    rows = db.list("employees", where="salary > 50000")
+    rows = db.select("employees", where="salary > 50000")
 
 If you need to interpolate values from Python into the ``where`` parameter, use the ``values`` parameter::
 
-    rows = db.list("employees", where="salary > :min_salary", values={"min_salary": 50000})
+    rows = db.select("employees", where="salary > :min_salary", values={"min_salary": 50000})
 
 Do not directly put values into the ``where`` string using Python string interpolation as this will leave you vulnerable to a `SQL injection <https://en.wikipedia.org/wiki/SQL_injection>`_ attack.
 
-``Database.list`` supports several additional parameters such as ``order_by``, ``limit``, and ``offset``, which are described in the :doc:`API reference <api>`.
+``Database.select`` supports several additional parameters such as ``order_by``, ``limit``, and ``offset``, which are described in the :doc:`API reference <api>`.
 
 To retrieve a single row, use ``Database.get``::
 
    row = db.get("employees", where="salary > 50000")
 
-``Database.get`` works exactly like ``Database.list`` except that it only returns a single row, or ``None`` if no matching rows were found.
+``Database.get`` works exactly like ``Database.select`` except that it only returns a single row, or ``None`` if no matching rows were found.
 
 To retrieve a row by its primary key, use ``Database.get_by_pk``::
 
@@ -62,48 +62,48 @@ To count the number of rows, use ``Database.count``::
 
    n = db.count("employees", where="salary > 50000")
 
-This is equivalent to ``len(db.list(...))``, but it is more efficient because it does not retrieve the actual contents of the rows.
+This is equivalent to ``len(db.select(...))``, but it is more efficient because it does not retrieve the actual contents of the rows.
 
 
-Creating and updating rows
---------------------------
+Inserting and updating rows
+---------------------------
 
-``Database.create`` is used to insert a new row into the database::
+``Database.insert`` is used to insert a new row into the database::
 
-   pk = db.create("employees", {"name": "John Doe", "salary": 75000})
+   pk = db.insert("employees", {"name": "John Doe", "salary": 75000})
 
-``Database.create`` returns the primary key of the row that was inserted, which can then be retrieved with ``Database.get_by_pk``.
+``Database.insert`` returns the primary key of the row that was inserted, which can then be retrieved with ``Database.get_by_pk``.
 
 To update an existing row or rows, use ``Database.update``::
 
    db.update("employees", {"yearly_bonus": 1000}, where="tenure > 5")
 
-Like ``Database.list``, ``Database.update`` accepts ``where`` and ``values`` parameters to control which rows to update. To update a single row by its primary key, use ``Database.update_by_pk``::
+Like ``Database.select``, ``Database.update`` accepts ``where`` and ``values`` parameters to control which rows to update. To update a single row by its primary key, use ``Database.update_by_pk``::
 
    db.update_by_pk("employees", 123, {"yearly_bonus": 500})
 
-Multiple rows can be inserted efficiently using ``Database.create_many``::
+Multiple rows can be inserted efficiently using ``Database.insert_many``::
 
-   db.create_many("employees", [{"name": "John Doe"}, {"name": "Jane Doe"}])
+   db.insert_many("employees", [{"name": "John Doe"}, {"name": "Jane Doe"}])
 
 This is the same as::
 
    for row in data:
-       db.create(table, row)
+       db.insert(table, row)
 
 But it uses a single SQL statements instead of N statements.
 
-A common pattern is to query for a particular row and create it if it doesn't exist. isqlite supports this with ``Database.get_or_create``::
+A common pattern is to query for a particular row and insert it if it doesn't exist. isqlite supports this with ``Database.get_or_insert``::
 
-   row = db.get_or_create("employees", {"name": "John Doe"})
+   row = db.get_or_insert("employees", {"name": "John Doe"})
 
-This will query the ``employees`` table for a row with the name ``John Doe`` and either return it or create it and return it if it does not exist.
+This will query the ``employees`` table for a row with the name ``John Doe`` and either return it or insert it and return it if it does not exist.
 
 
 Deleting rows
 -------------
 
-isqlite provides two methods to delete rows: ``Database.delete`` and ``Database.delete_by_pk``. Like ``Database.list`` and ``Database.update``, ``Database.delete`` accepts ``where`` and ``values`` parameters::
+isqlite provides two methods to delete rows: ``Database.delete`` and ``Database.delete_by_pk``. Like ``Database.select`` and ``Database.update``, ``Database.delete`` accepts ``where`` and ``values`` parameters::
 
    db.delete("employees", where="tenure > 100")
 
@@ -113,7 +113,7 @@ The ``where`` parameter is required, to prevent you from accidentally deleting e
 Fetching related rows
 ---------------------
 
-Often when fetching rows from the database, you also wish to fetch related rows from another table. isqlite makes this easy and efficient with the ``get_related`` option to ``Database.list`` and ``Database.get``.
+Often when fetching rows from the database, you also wish to fetch related rows from another table. isqlite makes this easy and efficient with the ``get_related`` option to ``Database.select`` and ``Database.get``.
 
 Imagine you have two database tables defined as follows:
 
@@ -135,9 +135,9 @@ Let's say that you want to fetch both a book and its author at the same time. Yo
 
 The corresponding row from the ``authors`` table will be fetched and embedded into the returned ``OrderedDict`` object.
 
-``Database.list`` supports the same parameter::
+``Database.select`` supports the same parameter::
 
-   for books in db.list("books", get_related=["author"]):
+   for books in db.select("books", get_related=["author"]):
        print(book["title"], book["author"]["name"])
 
 If you want to fetch every foreign-key row, you can use ``get_related=True``.

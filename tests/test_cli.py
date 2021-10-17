@@ -31,7 +31,7 @@ class TemporaryFileTestCase(unittest.TestCase):
         )
 
         if with_data:
-            cli.main_create(
+            cli.main_insert(
                 self.db_file_path,
                 "books",
                 ["title=Blood Meridian", "author=Cormac McCarthy"],
@@ -54,10 +54,10 @@ class MigrateTests(TemporaryFileTestCase):
 
         # Create some database rows.
         with Database(self.db_file_path) as db:
-            department_id = db.create(
+            department_id = db.insert(
                 "departments", {"name": "Computer Science", "abbreviation": "CS"}
             )
-            db.create(
+            db.insert(
                 "students",
                 {
                     "student_id": 123,
@@ -67,7 +67,7 @@ class MigrateTests(TemporaryFileTestCase):
                     "graduation_year": 2023,
                 },
             )
-            professor_id = db.create(
+            professor_id = db.insert(
                 "professors",
                 {
                     "first_name": "Barbara",
@@ -78,7 +78,7 @@ class MigrateTests(TemporaryFileTestCase):
                     "manager": None,
                 },
             )
-            db.create(
+            db.insert(
                 "courses",
                 {
                     "course_number": 101,
@@ -165,7 +165,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -189,12 +189,12 @@ class OtherCommandsTests(TemporaryFileTestCase):
             "author TEXT NOT NULL DEFAULT 'unknown'",
         )
 
-        cli.main_create(
+        cli.main_insert(
             self.db_file_path, "books", ["title=Beowulf"], auto_timestamp=False
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -224,7 +224,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_delete(self.db_file_path, "books", 1, no_confirm=True)
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
 
     @patch("sys.stdout", new_callable=ClearableStringIO)
@@ -239,7 +239,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -296,7 +296,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_rename_column(self.db_file_path, "books", "author", "authors")
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -327,7 +327,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         cli.main_reorder_columns(self.db_file_path, "books", ["author", "title"])
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(
@@ -369,7 +369,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
         mock_stdout.clear()
 
-        cli.main_list(self.db_file_path, "books")
+        cli.main_select(self.db_file_path, "books")
         self.assertEqual(
             mock_stdout.getvalue(),
             S(

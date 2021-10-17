@@ -14,15 +14,15 @@ class DatabaseTests(unittest.TestCase):
         self.db.migrate(SCHEMA)
 
         self.db.begin_transaction()
-        cs_department_pk = self.db.create(
+        cs_department_pk = self.db.insert(
             "departments",
             {"name": "Computer Science", "abbreviation": "CS"},
         )
-        ling_department_pk = self.db.create(
+        ling_department_pk = self.db.insert(
             "departments",
             {"name": "Linguistics", "abbreviation": "LING"},
         )
-        donald_knuth_pk = self.db.create(
+        donald_knuth_pk = self.db.insert(
             "professors",
             {
                 "first_name": "Donald",
@@ -33,8 +33,8 @@ class DatabaseTests(unittest.TestCase):
             },
         )
         # No particular need to get the full row for Noam Chomsky, just want to make
-        # sure that ``create_and_get`` works.
-        noam_chomsky = self.db.create_and_get(
+        # sure that ``insert_and_get`` works.
+        noam_chomsky = self.db.insert_and_get(
             "professors",
             {
                 "first_name": "Noam",
@@ -44,7 +44,7 @@ class DatabaseTests(unittest.TestCase):
                 "retired": True,
             },
         )
-        self.db.create(
+        self.db.insert(
             "professors",
             {
                 "first_name": "Larry",
@@ -55,7 +55,7 @@ class DatabaseTests(unittest.TestCase):
                 "manager": donald_knuth_pk,
             },
         )
-        self.db.create_many(
+        self.db.insert_many(
             "courses",
             [
                 {
@@ -74,7 +74,7 @@ class DatabaseTests(unittest.TestCase):
                 },
             ],
         )
-        self.db.create_many(
+        self.db.insert_many(
             "students",
             [
                 {
@@ -242,7 +242,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_foreign_key_enforcement(self):
         with self.assertRaises(sqlite3.IntegrityError):
-            self.db.create(
+            self.db.insert(
                 "professors",
                 {
                     "first_name": "Jack",
@@ -266,9 +266,9 @@ class DatabaseTests(unittest.TestCase):
         student = self.db.get_by_pk("students", pk)
         self.assertIsNone(student)
 
-    def test_list(self):
+    def test_select(self):
         for i in range(100):
-            self.db.create(
+            self.db.insert(
                 "students",
                 {
                     "student_id": i,
@@ -279,16 +279,16 @@ class DatabaseTests(unittest.TestCase):
                 },
             )
 
-        students = self.db.list(
+        students = self.db.select(
             "students", where="graduation_year = 2025 AND first_name = 'Jane'"
         )
         self.assertEqual(len(students), 100)
         self.assertEqual(students[0]["first_name"], "Jane")
 
-        self.assertEqual(len(self.db.list("students", limit=5)), 5)
+        self.assertEqual(len(self.db.select("students", limit=5)), 5)
 
-    def test_list_with_get_related(self):
-        courses = self.db.list("courses", get_related=True, order_by="course_number")
+    def test_select_with_get_related(self):
+        courses = self.db.select("courses", get_related=True, order_by="course_number")
         self.assertEqual(len(courses), 2)
         self.assertEqual(courses[0]["department"]["name"], "Linguistics")
         self.assertEqual(courses[0]["instructor"]["first_name"], "Noam")
@@ -337,7 +337,7 @@ class DatabaseTests(unittest.TestCase):
     def test_drop_column_with_keyword_name(self):
         self.db.create_table("test", ["name TEXT", "age INTEGER", '"order" INTEGER'])
 
-        self.db.create("test", {"name": "John Doe", "age": 24})
+        self.db.insert("test", {"name": "John Doe", "age": 24})
 
         self.db.drop_column("test", "age")
 
@@ -406,7 +406,7 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):
             # This should raise an IntegrityError because the CHECK constraint should
             # prevent `given_name` from being empty.
-            self.db.create(
+            self.db.insert(
                 "professors",
                 {
                     "given_name": "",
@@ -424,14 +424,14 @@ class DatabaseTests(unittest.TestCase):
     def test_reorder_columns(self):
         # We convert the rows to a regular dictionary because the OrderedDicts won't
         # compare equal after the reordering operation.
-        before = [dict(row) for row in self.db.list("departments", order_by="name")]
+        before = [dict(row) for row in self.db.select("departments", order_by="name")]
 
         reordered = ["id", "abbreviation", "name"]
         with self.db.transaction(disable_foreign_keys=True):
             self.db.reorder_columns("departments", reordered)
 
         self.assertEqual(list(self.db.get("departments").keys()), reordered)
-        after = [dict(row) for row in self.db.list("departments", order_by="name")]
+        after = [dict(row) for row in self.db.select("departments", order_by="name")]
         self.assertEqual(before, after)
 
     def test_cannot_modify_read_only_database(self):
@@ -448,10 +448,10 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertEqual(self.db.count(table), 0)
         self.assertEqual(self.db.get(table), None)
-        self.assertEqual(self.db.list(table), [])
+        self.assertEqual(self.db.select(table), [])
 
         column = 'c"d'
-        pk = self.db.create(table, {column: "Lorem ipsum"})
+        pk = self.db.insert(table, {column: "Lorem ipsum"})
         row = self.db.get_by_pk(table, pk)
         self.assertEqual(row, {column: "Lorem ipsum"})
 
@@ -469,7 +469,7 @@ class DatabaseTests(unittest.TestCase):
         schema_after = Schema([Table("t", ["name TEXT NOT NULL"])])
         with Database(":memory:", transaction=False) as db:
             db.migrate(schema_before)
-            pk = db.create("t", {"name": None})
+            pk = db.insert("t", {"name": None})
 
             # This will fail because the new schema requires that the `name` column be
             # not null, but we've already inserted a row with a null `name`.

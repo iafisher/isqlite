@@ -46,7 +46,7 @@ class Database:
     cursor: sqlite3.Cursor
     debugger: Optional["Debugger"]
     schema: Schema
-    create_auto_timestamp_columns: List[str]
+    insert_auto_timestamp_columns: List[str]
     update_auto_timestamp_columns: List[str]
 
     def __init__(
@@ -58,7 +58,7 @@ class Database:
         readonly: Optional[bool] = None,
         uri: bool = False,
         cached_statements: int = 100,
-        create_auto_timestamp_columns: List[str] = [],
+        insert_auto_timestamp_columns: List[str] = [],
         update_auto_timestamp_columns: List[str] = [],
     ) -> None:
         """
@@ -91,8 +91,8 @@ class Database:
         :param uri: If true, the ``path`` argument is interpreted as a URI rather than a
             file path.
         :param cached_statements: Passed on to ``sqlite3.connect``.
-        :param create_auto_timestamp_columns: A default value for
-            ``auto_timestamp_columns`` in ``create`` and ``create_many``. Usually set to
+        :param insert_auto_timestamp_columns: A default value for
+            ``auto_timestamp_columns`` in ``insert`` and ``insert_many``. Usually set to
             ``["created_at", "last_updated_at"]`` in conjunction with a schema defined
             using ``AutoTable``.
         :param update_auto_timestamp_columns: A default value for
@@ -121,7 +121,7 @@ class Database:
             else:
                 path = f"file:{path}"
 
-        self.create_auto_timestamp_columns = create_auto_timestamp_columns
+        self.insert_auto_timestamp_columns = insert_auto_timestamp_columns
         self.update_auto_timestamp_columns = update_auto_timestamp_columns
 
         self.connection = sqlite3.connect(
@@ -147,7 +147,7 @@ class Database:
 
         self.refresh_schema()
 
-    def list(
+    def select(
         self,
         table: str,
         *,
@@ -193,7 +193,7 @@ class Database:
         else:
             if descending is not None:
                 raise ISqliteApiError(
-                    "The `descending` parameter to `list` requires the `order_by` "
+                    "The `descending` parameter to `select` requires the `order_by` "
                     + "parameter to be set."
                 )
             order_clause = ""
@@ -206,7 +206,7 @@ class Database:
         else:
             if offset is not None:
                 raise ISqliteApiError(
-                    "The `offset` parameter to `list` requires the `limit` parameter "
+                    "The `offset` parameter to `select` requires the `limit` parameter "
                     + "to be set."
                 )
 
@@ -244,20 +244,20 @@ class Database:
         Retrieve a single row from the database table and return it as an
         ``OrderedDict`` object.
 
-        Equivalent to ``Database.list(*args, **kwargs)[0]`` except that ``None`` is
+        Equivalent to ``Database.select(*args, **kwargs)[0]`` except that ``None`` is
         returned if no matching row is found, and the SQLite engine only fetches a
         single row from the database.
 
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
-        :param where: Same as for ``Database.list``.
-        :param values: Same as for ``Database.list``.
-        :param order_by: Same as for ``Database.list``.
-        :param descending: Same as for ``Database.list``.
-        :param get_related: Same as for ``Database.list``.
+        :param where: Same as for ``Database.select``.
+        :param values: Same as for ``Database.select``.
+        :param order_by: Same as for ``Database.select``.
+        :param descending: Same as for ``Database.select``.
+        :param get_related: Same as for ``Database.select``.
         """
-        rows = self.list(
+        rows = self.select(
             table,
             where=where,
             values=values,
@@ -281,32 +281,32 @@ class Database:
         pk_column = f"{quote(table)}.rowid"
         return self.get(table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs)
 
-    def get_or_create(self, table: str, data: Row, **kwargs) -> Row:
+    def get_or_insert(self, table: str, data: Row, **kwargs) -> Row:
         """
         Retrieve a single row from the database table matching the parameters in
-        ``data``. If no such row exists, create it and return it.
+        ``data``. If no such row exists, insert it and return it.
 
-        Not to be confused with ``create_and_get``, which unconditionally creates a row
+        Not to be confused with ``insert_and_get``, which unconditionally inserts a row
         and returns it.
 
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
         :param data: The parameters to match the database row. All required columns of
-            the table must be included, or else the internal call to ``Database.create``
+            the table must be included, or else the internal call to ``Database.insert``
             will fail.
-        :param kwargs: Additional arguments to pass on to ``Database.create``. If the
+        :param kwargs: Additional arguments to pass on to ``Database.insert``. If the
             database row already exists, these arguments are ignored.
         """
         if not data:
             raise ISqliteError(
-                "The `data` parameter to `get_or_create` cannot be empty."
+                "The `data` parameter to `get_or_insert` cannot be empty."
             )
 
         query = " AND ".join(f"{key} = :{key}" for key in data)
         row = self.get(table, where=query, values=data)
         if row is None:
-            pk = self.create(table, data, **kwargs)
+            pk = self.insert(table, data, **kwargs)
             row = self.get_by_pk(table, pk)
             assert row is not None
             return row
@@ -327,8 +327,8 @@ class Database:
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
-        :param where: Same as for ``Database.list``.
-        :param values: Same as for ``Database.list``.
+        :param where: Same as for ``Database.select``.
+        :param values: Same as for ``Database.select``.
         :param distinct: Only count rows with distinct values of this column.
         """
         where_clause = f"WHERE {where}" if where else ""
@@ -341,7 +341,7 @@ class Database:
         )
         return result[0]
 
-    def create(
+    def insert(
         self,
         table: str,
         data: Row,
@@ -349,9 +349,9 @@ class Database:
         auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> int:
         """
-        Insert a new row and its primary key.
+        Insert a new row and return its primary key.
 
-        To get the contents of the row after it is inserted, use ``create_and_get``.
+        To get the contents of the row after it is inserted, use ``insert_and_get``.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
@@ -360,11 +360,11 @@ class Database:
             values.
         :param auto_timestamp_columns: A list of columns into which to insert the
             current date and time, as an ISO 8601 timestamp. If true, it defaults to
-            the value of ``create_auto_timestamp_columns`` passed to ``__init__``.
+            the value of ``insert_auto_timestamp_columns`` passed to ``__init__``.
         """
         if isinstance(auto_timestamp_columns, bool):
             if auto_timestamp_columns is True:
-                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+                auto_timestamp_columns_list = self.insert_auto_timestamp_columns
             else:
                 auto_timestamp_columns_list = []
         else:
@@ -393,7 +393,7 @@ class Database:
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
 
-    def create_and_get(
+    def insert_and_get(
         self,
         table: str,
         data: Row,
@@ -401,11 +401,11 @@ class Database:
         auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> Row:
         """
-        Same as ``create``, except it fetches the row after it is inserted and returns
+        Same as ``insert``, except it fetches the row after it is inserted and returns
         it. Note that this requires an extra SQL query.
 
-        Not to be confused with ``get_or_create``, which first tries to fetch a matching
-        row and only creates a new row if no matching one exists.
+        Not to be confused with ``get_or_insert``, which first tries to fetch a matching
+        row and only inserts a new row if no matching one exists.
 
         The returned row may differ from ``data`` for two reasons:
 
@@ -414,12 +414,12 @@ class Database:
         - SQLite will supply default values if possible for any columns of the table
           omitted from ``data``.
         """
-        pk = self.create(table, data, auto_timestamp_columns=auto_timestamp_columns)
+        pk = self.insert(table, data, auto_timestamp_columns=auto_timestamp_columns)
         row = self.get_by_pk(table, pk)
         assert row is not None
         return row
 
-    def create_many(
+    def insert_many(
         self,
         table: str,
         data: Rows,
@@ -432,7 +432,7 @@ class Database:
         Equivalent to::
 
             for row in data:
-                db.create(table, row)
+                db.insert(table, row)
 
         but more efficient.
         """
@@ -441,7 +441,7 @@ class Database:
 
         if isinstance(auto_timestamp_columns, bool):
             if auto_timestamp_columns is True:
-                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+                auto_timestamp_columns_list = self.insert_auto_timestamp_columns
             else:
                 auto_timestamp_columns_list = []
         else:
@@ -486,15 +486,16 @@ class Database:
             attacks.
         :param data: The columns to update, as a dictionary from column names to column
             values.
-        :param where: Restrict the set of rows to update. Same as for ``Database.list``.
-        :param values: Same as for ``Database.list``.
-        :param auto_timestamp_columns: Same as for ``Database.create``, except that if
+        :param where: Restrict the set of rows to update. Same as for
+            ``Database.select``.
+        :param values: Same as for ``Database.select``.
+        :param auto_timestamp_columns: Same as for ``Database.insert``, except that if
             the same column appears in both ``values`` and ``auto_timestamp_columns``,
             the timestamp will be inserted instead of the value.
         """
         if isinstance(auto_timestamp_columns, bool):
             if auto_timestamp_columns is True:
-                auto_timestamp_columns_list = self.create_auto_timestamp_columns
+                auto_timestamp_columns_list = self.insert_auto_timestamp_columns
             else:
                 auto_timestamp_columns_list = []
         else:
@@ -552,10 +553,10 @@ class Database:
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
             attacks.
-        :param where: Same as for ``Database.list``, except that it is required, to
+        :param where: Same as for ``Database.select``, except that it is required, to
             avoid accidentally deleting every row in a table. If you indeed wish to
             delete every row, then pass ``where="1"``.
-        :param values: Same as for ``Database.list``.
+        :param values: Same as for ``Database.select``.
         """
         if not where:
             raise ISqliteApiError(
@@ -628,7 +629,7 @@ class Database:
         """
         if isinstance(columns, str):
             raise ISqliteApiError(
-                "second argument to DatabaseMigrator.create_table must be a list, "
+                "second argument to `Database.create_table` must be a list, "
                 + "not a string"
             )
 
@@ -859,8 +860,8 @@ class Database:
         using ``Database.sql`` or in an external database connection, you may need to
         call this method for correct behavior.
 
-        The internal schema is used by the ``get_related`` functionality of ``list`` and
-        ``get``.
+        The internal schema is used by the ``get_related`` functionality of ``select``
+        and ``get``.
         """
         self.schema = self._get_schema_from_database()
 
@@ -1044,7 +1045,7 @@ class Database:
         return Schema(
             [
                 sqliteparser.parse(row["sql"])[0]
-                for row in self.list(
+                for row in self.select(
                     "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
                 )
             ]
@@ -1089,7 +1090,7 @@ def ordered_dict_row_factory(cursor: sqlite3.Cursor, row: Tuple[Any]) -> Row:
         name = column[0]
         value = row[i]
 
-        # When `get_related` is passed to `Database.get` or `Database.list`, the SQL
+        # When `get_related` is passed to `Database.get` or `Database.select`, the SQL
         # query fetches columns from foreign key relationships and names them with the
         # format {original_table_column}____{related_table_column}, i.e. if the
         # `students` table has a `major` column that points to the `departments` table,
