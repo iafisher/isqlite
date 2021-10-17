@@ -39,6 +39,10 @@ You can also do the migration from the command line with ``isqlite migrate path/
 
 Note that the ``migrate`` command requires that the schema be defined in a variable called ``SCHEMA`` in whatever Python file is passed.
 
+.. note::
+
+   isqlite migrations have some limitations. See :doc:`the "Limitations" page <limitations>` for details.
+
 
 Changing the schema from the command line
 -----------------------------------------
