@@ -286,6 +286,9 @@ class Database:
         Retrieve a single row from the database table matching the parameters in
         ``data``. If no such row exists, create it and return it.
 
+        Not to be confused with ``create_and_get``, which unconditionally creates a row
+        and returns it.
+
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
@@ -346,7 +349,9 @@ class Database:
         auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> int:
         """
-        Insert a new row.
+        Insert a new row and its primary key.
+
+        To get the contents of the row after it is inserted, use ``create_and_get``.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
@@ -387,6 +392,32 @@ class Database:
             self.debugger.execute(sql, values)
         self.cursor.execute(sql, values)
         return self.cursor.lastrowid
+
+    def create_and_get(
+        self,
+        table: str,
+        data: Row,
+        *,
+        auto_timestamp_columns: Union[List[str], bool] = True,
+    ) -> Row:
+        """
+        Same as ``create``, except it fetches the row after it is inserted and returns
+        it. Note that this requires an extra SQL query.
+
+        Not to be confused with ``get_or_create``, which first tries to fetch a matching
+        row and only creates a new row if no matching one exists.
+
+        The returned row may differ from ``data`` for two reasons:
+
+        - The ``auto_timestamp_columns`` parameter causes isqlite to insert values
+          into additional columns besides those in ``data``.
+        - SQLite will supply default values if possible for any columns of the table
+          omitted from ``data``.
+        """
+        pk = self.create(table, data, auto_timestamp_columns=auto_timestamp_columns)
+        row = self.get_by_pk(table, pk)
+        assert row is not None
+        return row
 
     def create_many(
         self,

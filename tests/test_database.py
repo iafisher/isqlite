@@ -14,30 +14,32 @@ class DatabaseTests(unittest.TestCase):
         self.db.migrate(SCHEMA)
 
         self.db.begin_transaction()
-        cs_department = self.db.create(
+        cs_department_pk = self.db.create(
             "departments",
             {"name": "Computer Science", "abbreviation": "CS"},
         )
-        ling_department = self.db.create(
+        ling_department_pk = self.db.create(
             "departments",
             {"name": "Linguistics", "abbreviation": "LING"},
         )
-        donald_knuth = self.db.create(
+        donald_knuth_pk = self.db.create(
             "professors",
             {
                 "first_name": "Donald",
                 "last_name": "Knuth",
-                "department": cs_department,
+                "department": cs_department_pk,
                 "tenured": True,
                 "retired": False,
             },
         )
-        noam_chomsky = self.db.create(
+        # No particular need to get the full row for Noam Chomsky, just want to make
+        # sure that ``create_and_get`` works.
+        noam_chomsky = self.db.create_and_get(
             "professors",
             {
                 "first_name": "Noam",
                 "last_name": "Chomsky",
-                "department": ling_department,
+                "department": ling_department_pk,
                 "tenured": True,
                 "retired": True,
             },
@@ -47,10 +49,10 @@ class DatabaseTests(unittest.TestCase):
             {
                 "first_name": "Larry",
                 "last_name": "Logician",
-                "department": cs_department,
+                "department": cs_department_pk,
                 "tenured": False,
                 "retired": False,
-                "manager": donald_knuth,
+                "manager": donald_knuth_pk,
             },
         )
         self.db.create_many(
@@ -58,15 +60,15 @@ class DatabaseTests(unittest.TestCase):
             [
                 {
                     "course_number": 399,
-                    "department": cs_department,
-                    "instructor": donald_knuth,
+                    "department": cs_department_pk,
+                    "instructor": donald_knuth_pk,
                     "title": "Algorithms",
                     "credits": decimal.Decimal(2.0),
                 },
                 {
                     "couse_number": 101,
-                    "department": ling_department,
-                    "instructor": noam_chomsky,
+                    "department": ling_department_pk,
+                    "instructor": noam_chomsky["id"],
                     "title": "Intro to Linguistics",
                     "credits": decimal.Decimal(1.0),
                 },
@@ -79,14 +81,14 @@ class DatabaseTests(unittest.TestCase):
                     "student_id": 123456,
                     "first_name": "Helga",
                     "last_name": "Heapsort",
-                    "major": cs_department,
+                    "major": cs_department_pk,
                     "graduation_year": 2023,
                 },
                 {
                     "student_id": 456789,
                     "first_name": "Philip",
                     "last_name": "Phonologist",
-                    "major": ling_department,
+                    "major": ling_department_pk,
                     "graduation_year": 2022,
                 },
                 {
