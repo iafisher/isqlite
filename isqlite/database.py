@@ -678,19 +678,15 @@ class Database:
         """
         # ALTER TABLE ... DROP COLUMN is only supported since SQLite version 3.35, so we
         # implement it by hand here.
-        create_table_statement = self._get_create_table_statement(table_name)
+        table_schema = self.schema[table_name]
         columns = [
-            str(column)
-            for column in create_table_statement.columns
-            if column.name != column_name
+            str(column) for column in table_schema.columns if column.name != column_name
         ]
-        if len(columns) == len(create_table_statement.columns):
+        if len(columns) == len(table_schema.columns):
             raise ColumnDoesNotExistError(table_name, column_name)
 
         select = ", ".join(
-            quote(c.name)
-            for c in create_table_statement.columns
-            if c.name != column_name
+            quote(c.name) for c in table_schema.columns if c.name != column_name
         )
         self._migrate_table(table_name, columns, select=select)
         self.refresh_schema()
@@ -704,10 +700,8 @@ class Database:
             column names must be the same as in the database; otherwise, an exception
             will be raised.
         """
-        create_table_statement = self._get_create_table_statement(table_name)
-        column_map = collections.OrderedDict(
-            (c.name, c) for c in create_table_statement.columns
-        )
+        table_schema = self.schema[table_name]
+        column_map = collections.OrderedDict((c.name, c) for c in table_schema.columns)
 
         if set(column_names) != set(column_map.keys()):
             raise ISqliteError(
@@ -730,10 +724,10 @@ class Database:
         :param new_column: The new definition of the column, without the name, as a SQL
             string.
         """
-        create_table_statement = self._get_create_table_statement(table_name)
+        table_schema = self.schema[table_name]
         columns = []
         altered = False
-        for column in create_table_statement.columns:
+        for column in table_schema.columns:
             if column.name == column_name:
                 columns.append(f"{column_name} {new_column}")
                 altered = True
@@ -746,7 +740,7 @@ class Database:
         self._migrate_table(
             table_name,
             columns,
-            select=", ".join(quote(c.name) for c in create_table_statement.columns),
+            select=", ".join(quote(c.name) for c in table_schema.columns),
         )
         self.refresh_schema()
 
@@ -758,11 +752,12 @@ class Database:
         """
         # ALTER TABLE ... RENAME COLUMN is only supported since SQLite version 3.25, so
         # we implement it by hand here.
-        create_table_statement = self._get_create_table_statement(table_name)
-        columns_before = create_table_statement.columns
+        table_schema = self.schema[table_name]
+
+        columns_before = table_schema.columns
         columns_after = []
         altered = False
-        for column in create_table_statement.columns:
+        for column in table_schema.columns:
             if column.name == old_column_name:
                 columns_after.append(
                     str(rename_column(column, old_column_name, new_column_name))
@@ -974,17 +969,6 @@ class Database:
 
         # Check that no foreign key constraints have been violated.
         self.sql("PRAGMA foreign_key_check")
-
-    def _get_create_table_statement(
-        self, table_name: str
-    ) -> sqliteparser.ast.CreateTableStatement:
-        sql = self.sql(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = :table",
-            {"table": table_name},
-            as_tuple=True,
-            multiple=False,
-        )[0]
-        return sqliteparser.parse(sql)[0]
 
     def _get_related_columns_and_joins(
         self, table: str, get_related: Union[List[str], bool]
