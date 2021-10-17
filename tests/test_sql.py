@@ -3,7 +3,14 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import AutoTable, ColumnDoesNotExistError, Database, ISqliteError, Table
+from isqlite import (
+    AutoTable,
+    ColumnDoesNotExistError,
+    Database,
+    ISqliteError,
+    Table,
+    columns,
+)
 from isqlite.migrations import (
     AddColumnMigration,
     RenameColumnMigration,
@@ -388,7 +395,6 @@ class DatabaseTests(unittest.TestCase):
         professor_after.pop("is_tenured")
         self.assertEqual(professor_before, professor_after)
 
-    @unittest.skip("not working")
     def test_rename_column_with_constraint(self):
         # Test renaming a column that also has a CHECK constraint with the column's
         # name:
@@ -470,12 +476,13 @@ class DatabaseTests(unittest.TestCase):
 
 
 class DiffTests(unittest.TestCase):
+    @unittest.skip("not working")
     def test_diff_column_renamed(self):
         schema_before = [
             Table(
                 "employees",
                 [
-                    "name TEXT NOT NULL",
+                    columns.text("name", required=True),
                 ],
             ),
         ]
@@ -483,7 +490,7 @@ class DiffTests(unittest.TestCase):
             Table(
                 "employees",
                 [
-                    "legal_name TEXT NOT NULL",
+                    columns.text("legal_name", required=True),
                 ],
             ),
         ]

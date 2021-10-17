@@ -4,6 +4,7 @@ import textwrap
 import warnings
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import attr
 import sqliteparser
 from sqliteparser import quote
 
@@ -716,10 +717,9 @@ class Database:
         altered = False
         for column in create_table_statement.columns:
             if column.name == old_column_name:
-                definition = (
-                    str(column.definition) if column.definition is not None else ""
+                columns_after.append(
+                    str(rename_column(column, old_column_name, new_column_name))
                 )
-                columns_after.append(f"{new_column_name} {definition}")
                 altered = True
             else:
                 columns_after.append(str(column))
@@ -943,9 +943,8 @@ class Database:
         for new_index, column in enumerate(columns_in_schema):
             old_index = columns_in_database_map.get(column.name)
             if old_index is None:
-                if (
-                    new_index < len(columns_in_database)
-                    and column.definition == columns_in_database[new_index].definition
+                if new_index < len(columns_in_database) and is_renamed_column(
+                    column, columns_in_database[new_index]
                 ):
                     old_column_name = columns_in_database[new_index].name
                     renamed_columns.add(old_column_name)
@@ -1182,6 +1181,82 @@ def get_foreign_key_model(column: sqliteparser.ast.Column) -> Optional[str]:
             return constraint.foreign_table
 
     return None
+
+
+def is_renamed_column(
+    column_in_schema: sqliteparser.ast.Column,
+    column_in_database: sqliteparser.ast.Column,
+) -> bool:
+    return column_in_schema.definition == column_in_database.definition
+
+
+def rename_column(
+    column: sqliteparser.ast.Column,
+    old_name: str,
+    new_name: str,
+) -> sqliteparser.ast.ColumnDefinition:
+    renamer = ColumnRenamer(old_name, new_name)
+    return renamer.rename(column)
+
+
+class ColumnRenamer:
+    """
+    A class implementing the visitor pattern which renames all instances of a column's
+    name in the column's definition.
+    """
+
+    def __init__(self, old_name, new_name):
+        self.old_name = old_name
+        self.new_name = new_name
+
+    def rename(self, node):
+        if node is None:
+            return None
+
+        return node.accept(self)
+
+    def visit_column(self, node):
+        return attr.evolve(
+            node,
+            name=self.new_name if node.name == self.old_name else node.name,
+            definition=self.rename(node.definition),
+        )
+
+    def visit_column_definition(self, node):
+        return attr.evolve(node, constraints=list(map(self.rename, node.constraints)))
+
+    def visit_check_constraint(self, node):
+        return attr.evolve(node, expr=self.rename(node.expr))
+
+    def visit_named_constraint(self, node):
+        return attr.evolve(node, constraint=self.rename(node.constraint))
+
+    def visit_foreign_key_constraint(self, node):
+        columns = [
+            self.new_name if column == self.old_name else column
+            for column in node.columns
+        ]
+        return attr.evolve(node, columns=columns)
+
+    def visit_generated_column_constraint(self, node):
+        return attr.evolve(node, expression=self.rename(node.expression))
+
+    def visit_infix(self, node):
+        return attr.evolve(
+            node, left=self.rename(node.left), right=self.rename(node.right)
+        )
+
+    def visit_expression_list(self, node):
+        return attr.evolve(node, values=list(map(self.rename, node.values)))
+
+    def visit_identifier(self, node):
+        if node.value == self.old_name:
+            return sqliteparser.ast.Identifier(self.new_name)
+        else:
+            return node
+
+    def visit_default(self, node):
+        return node
 
 
 class Table:
