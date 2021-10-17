@@ -3,7 +3,7 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import ColumnDoesNotExistError, Database, ISqliteError
+from isqlite import ColumnDoesNotExistError, Database, ISqliteError, Schema, Table
 
 from .schema import SCHEMA
 
@@ -461,3 +461,19 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(ISqliteError):
             # The second argument should be a list, not a string.
             self.db.create_table("test_table", "name TEXT NOT NULL")
+
+    def test_migration_is_rolled_back_after_error(self):
+        schema_before = Schema([Table("t", ["name TEXT"])])
+        schema_after = Schema([Table("t", ["name TEXT NOT NULL"])])
+        with Database(":memory:", transaction=False) as db:
+            db.migrate(schema_before)
+            pk = db.create("t", {"name": None})
+
+            # This will fail because the new schema requires that the `name` column be
+            # not null, but we've already inserted a row with a null `name`.
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.migrate(schema_after)
+
+            # Make sure our data is still there.
+            row = db.get_by_pk("t", pk)
+            self.assertIsNone(row["name"])
