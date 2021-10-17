@@ -29,10 +29,10 @@ class Database:
             ...
 
     On creation, the ``Database`` connection will open a SQL transaction which will be
-    either committed or rolled back by the context manager, depending on whether an
-    exception occurs.
+    either committed or rolled back at the end of the ``with`` statement, depending on
+    whether an exception occurs.
 
-    You can also use multiple transactions over the life of the connection::
+    You can also have multiple transactions over the life of the connection::
 
         with Database("db.sqlite3", transaction=False) as db:
             with db.transaction():
@@ -785,10 +785,8 @@ class Database:
                 elif isinstance(op, migrations.AlterColumnMigration):
                     self.alter_column(
                         op.table_name,
-                        op.column.name,
-                        str(op.column.definition)
-                        if op.column.definition is not None
-                        else "",
+                        op.column_name,
+                        op.column_definition,
                     )
                 elif isinstance(op, migrations.AddColumnMigration):
                     self.add_column(op.table_name, op.column)

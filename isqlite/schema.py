@@ -166,7 +166,11 @@ def diff_tables(old_table: Table, new_table: Table) -> Diff:
 
         old_column = old_table.columns[old_index]
         if old_column != column:
-            diff.append(migrations.AlterColumnMigration(table_name, column))
+            diff.append(
+                migrations.AlterColumnMigration(
+                    table_name, column.name, str(column.definition)
+                )
+            )
 
     new_columns_to_index_map = {
         column.name: i for i, column in enumerate(new_table.columns)
