@@ -1,5 +1,5 @@
 # isqlite
-isqlite is an improved Python interface to SQLite. It has a more convenient API, support for database migrations, and a command-line interface.
+isqlite is an improved Python interface to SQLite. It has a more convenient API, support for schema diffing and migrations, and a command-line interface.
 
 
 ```python
@@ -36,7 +36,7 @@ with Database(":memory:") as db:
 
 ## Features
 - A convenient Python API
-- Database migrations
+- Database migrations with automatic schema diffing
 - A command-line interface
 
 
@@ -49,4 +49,4 @@ $ pip install isqlite
 
 
 ## Documentation
-Comprehensive documentation, including the API reference, is available at <https://isqlite.readthedocs.io/en/stable/>.
+Comprehensive documentation, including an API reference, is available at <https://isqlite.readthedocs.io/en/stable/>.
