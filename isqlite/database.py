@@ -741,7 +741,7 @@ class Database:
         :param schema: The Python schema to compare against the database.
         :param table: The table to diff. If empty, the entire database will be diffed.
         """
-        tables_in_db = self._get_sql_schema()
+        tables_in_db = self._get_schema_from_database()
         tables_in_schema = schema.tables if not table else [schema[table]]
 
         diff: Diff = collections.defaultdict(list)
@@ -840,7 +840,7 @@ class Database:
         The internal schema is used by the ``get_related`` functionality of ``list`` and
         ``get``.
         """
-        self.schema = self._get_sql_schema()
+        self.schema = self._get_schema_from_database()
 
     def transaction(
         self, *, disable_foreign_keys: bool = False
@@ -1079,14 +1079,15 @@ class Database:
         )
         return columns, joins
 
-    def _get_sql_schema(self) -> Dict[str, sqliteparser.ast.Column]:
-        tables_in_db = {
+    def _get_schema_from_database(
+        self,
+    ) -> Dict[str, sqliteparser.ast.CreateTableStatement]:
+        return {
             row["name"]: sqliteparser.parse(row["sql"])[0]
             for row in self.list(
                 "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
             )
         }
-        return tables_in_db
 
 
 class TransactionContextManager:
