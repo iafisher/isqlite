@@ -44,6 +44,13 @@ class Database:
                 ...
     """
 
+    connection: sqlite3.Connection
+    cursor: sqlite3.Cursor
+    debugger: Optional["Debugger"]
+    schema: Dict[str, sqliteparser.ast.CreateTableStatement]
+    create_auto_timestamp_columns: List[str]
+    update_auto_timestamp_columns: List[str]
+
     def __init__(
         self,
         path: str,
