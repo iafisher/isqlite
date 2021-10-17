@@ -50,3 +50,7 @@ $ pip install isqlite
 
 ## Documentation
 Comprehensive documentation, including an API reference, is available at <https://isqlite.readthedocs.io/en/stable/>.
+
+
+## Version history
+Version 1.0.0 of isqlite was released on October 17, 2021, after six months of development. isqlite adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html), and detailed information about individual releases can be viewed in the [change log](/CHANGELOG.md).
