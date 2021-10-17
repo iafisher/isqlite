@@ -22,12 +22,12 @@ Migration limitations
 
 There are some cases in migrations which isqlite cannot handle cleanly.
 
-Renaming columns
-^^^^^^^^^^^^^^^^
+Renaming columns and tables
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The automated ``isqlite migrate`` command is not able to detect renamed columns. Instead, it will interpret a renaming as dropping the original column and adding a new column with the new name, which will cause all the data in the column to be lost.
+The automated ``isqlite migrate`` command is not able to detect renamed columns and tables. Instead, it will interpret a renaming as dropping the original column or table and adding a new one with the new name, which will cause all the data to be lost.
 
-To rename a column, use the ``isqlite rename-column`` command and then update the Python schema to use the new name.
+To rename a column or a table safely, use the ``isqlite rename-column`` or ``isqlite rename-table`` commands, and then update the Python schema to use the new name.
 
 
 Renaming columns and tables named elsewhere
