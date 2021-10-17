@@ -340,7 +340,7 @@ class Database:
         table: str,
         data: Row,
         *,
-        auto_timestamp_columns: Union[List[str], bool] = False,
+        auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> int:
         """
         Insert a new row.
@@ -390,7 +390,7 @@ class Database:
         table: str,
         data: Rows,
         *,
-        auto_timestamp_columns: Union[List[str], bool] = False,
+        auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> None:
         """
         Insert multiple rows at once.
@@ -442,7 +442,7 @@ class Database:
         *,
         where: str = "",
         values: Dict[str, Any] = {},
-        auto_timestamp_columns: Union[List[str], bool] = False,
+        auto_timestamp_columns: Union[List[str], bool] = True,
     ) -> None:
         """
         Update an existing row.
