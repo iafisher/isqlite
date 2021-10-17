@@ -113,7 +113,36 @@ The ``where`` parameter is required, to prevent you from accidentally deleting e
 Fetching related rows
 ---------------------
 
-TODO
+Often when fetching rows from the database, you also wish to fetch related rows from another table. isqlite makes this easy and efficient with the ``get_related`` option to ``Database.list`` and ``Database.get``.
+
+Imagine you have two database tables defined as follows:
+
+.. code-block:: sql
+
+   CREATE TABLE authors(
+       name TEXT,
+   );
+
+   CREATE TABLE books(
+       title TEXT,
+       author INTEGER REFERENCES authors,
+   );
+
+Let's say that you want to fetch both a book and its author at the same time. You can do so with ``get_related=["author"]``::
+
+   book = db.get_by_pk("books", 123, get_related=["author"])
+   print(book["author"]["name"])
+
+The corresponding row from the ``authors`` table will be fetched and embedded into the returned ``OrderedDict`` object.
+
+``Database.list`` supports the same parameter::
+
+   for books in db.list("books", get_related=["author"]):
+       print(book["title"], book["author"]["name"])
+
+If you want to fetch every foreign-key row, you can use ``get_related=True``.
+
+Under the hood, ``get_related`` uses SQL joins to ensure that each operation still only requires a single SQL query.
 
 
 Using raw SQL

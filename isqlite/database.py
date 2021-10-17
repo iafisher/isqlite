@@ -343,7 +343,7 @@ class Database:
             values.
         :param auto_timestamp_columns: A list of columns into which to insert the
             current date and time, as an ISO 8601 timestamp. If true, it defaults to
-            the value of ``create_auto_timestamp_columns`` passed to ``__init__`.
+            the value of ``create_auto_timestamp_columns`` passed to ``__init__``.
         """
         if isinstance(auto_timestamp_columns, bool):
             if auto_timestamp_columns is True:
