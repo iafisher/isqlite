@@ -10,12 +10,15 @@ API reference
     :member-order: bysource
 
 
-Table definitions
------------------
+Schema definitions
+------------------
 
 .. autoclass:: isqlite.Table
 
 .. autoclass:: isqlite.AutoTable
+
+.. autoclass:: isqlite.Schema
+    :members:
 
 
 Column functions

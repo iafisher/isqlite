@@ -13,7 +13,7 @@ from .database import (
     ISqliteError,
     TableDoesNotExistError,
 )
-from .schema import AutoTable, Table
+from .schema import AutoTable, Schema, Table
 
 
 def sqlite3_convert_boolean(b):

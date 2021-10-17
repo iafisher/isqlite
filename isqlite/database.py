@@ -9,7 +9,7 @@ import sqliteparser
 from sqliteparser import quote
 
 from . import migrations
-from .schema import Table
+from .schema import Schema
 
 CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
 AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
@@ -733,7 +733,7 @@ class Database:
         )
         self.refresh_schema()
 
-    def diff(self, schema: List[Table], *, table="") -> Diff:
+    def diff(self, schema: Schema, *, table="") -> Diff:
         """
         Return a list of differences between the Python schema and the actual database
         schema.
@@ -741,10 +741,8 @@ class Database:
         :param schema: The Python schema to compare against the database.
         :param table: The table to diff. If empty, the entire database will be diffed.
         """
-        schema_map = collections.OrderedDict((table.name, table) for table in schema)
-
         tables_in_db = self._get_sql_schema()
-        tables_in_schema = schema_map.values() if not table else [schema_map[table]]
+        tables_in_schema = schema.tables if not table else [schema[table]]
 
         diff: Diff = collections.defaultdict(list)
         for table_in_schema in tables_in_schema:
@@ -817,7 +815,7 @@ class Database:
 
             self.refresh_schema()
 
-    def migrate(self, schema: List[Table]) -> None:
+    def migrate(self, schema: Schema) -> None:
         """
         Migrate the database to match the Python schema.
 

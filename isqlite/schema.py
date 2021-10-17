@@ -39,3 +39,25 @@ class AutoTable(Table):
         last_updated_at_column = timestamp_column("last_updated_at", required=True)
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
         super().__init__(name, columns)
+
+
+class Schema:
+    """
+    A class to represent an entire database schema.
+    """
+
+    def __init__(self, tables: List[Table]) -> None:
+        self._tables = collections.OrderedDict((table.name, table) for table in tables)
+
+    def __getitem__(self, key: str) -> Table:
+        """
+        Accesses a table by name.
+        """
+        return self._tables[key]
+
+    @property
+    def tables(self) -> List[Table]:
+        """
+        Returns the tables in the schema as a list.
+        """
+        return list(self._tables.values())

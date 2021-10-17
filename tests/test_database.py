@@ -8,6 +8,7 @@ from isqlite import (
     ColumnDoesNotExistError,
     Database,
     ISqliteError,
+    Schema,
     Table,
     columns,
 )
@@ -477,22 +478,26 @@ class DatabaseTests(unittest.TestCase):
 
 class DiffTests(unittest.TestCase):
     def test_diff_column_renamed(self):
-        schema_before = [
-            Table(
-                "employees",
-                [
-                    columns.text("name", required=True),
-                ],
-            ),
-        ]
-        schema_after = [
-            Table(
-                "employees",
-                [
-                    columns.text("legal_name", required=True),
-                ],
-            ),
-        ]
+        schema_before = Schema(
+            [
+                Table(
+                    "employees",
+                    [
+                        columns.text("name", required=True),
+                    ],
+                ),
+            ]
+        )
+        schema_after = Schema(
+            [
+                Table(
+                    "employees",
+                    [
+                        columns.text("legal_name", required=True),
+                    ],
+                ),
+            ]
+        )
 
         with Database(":memory:", transaction=False) as db:
             db.migrate(schema_before)
@@ -506,23 +511,27 @@ class DiffTests(unittest.TestCase):
             )
 
     def test_diff_column_added(self):
-        schema_before = [
-            AutoTable(
-                "events",
-                [
-                    "start DATE",
-                ],
-            ),
-        ]
-        schema_after = [
-            AutoTable(
-                "events",
-                [
-                    "start DATE",
-                    "end DATE",
-                ],
-            ),
-        ]
+        schema_before = Schema(
+            [
+                AutoTable(
+                    "events",
+                    [
+                        "start DATE",
+                    ],
+                ),
+            ]
+        )
+        schema_after = Schema(
+            [
+                AutoTable(
+                    "events",
+                    [
+                        "start DATE",
+                        "end DATE",
+                    ],
+                ),
+            ]
+        )
 
         with Database(":memory:", transaction=False) as db:
             db.migrate(schema_before)
