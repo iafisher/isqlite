@@ -170,3 +170,13 @@ By default, the ``Database`` object will open a transaction immediately and comm
 Each ``with`` statement represents a separate transaction. ``transaction=False`` tells the ``Database`` object to not open a transaction immediately. This means that any statements run outside of a ``Database.transaction()`` block will be committed immediately.
 
 ``Datbase.transaction`` is solely intended to be used as a context manager. Its return value should be ignored.
+
+
+Converters and adapters
+-----------------------
+
+`Converters and adapters <https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types>`_ are Python functions that translate values between Python and SQL. In addition to the default ``datetime.date``/``DATE`` and ``datetime.datetime``/``TIMESTAMP`` functions that Python's ``sqlite3`` module registers, isqlite automatically registers converters and adapters for ``BOOLEAN``, ``DECIMAL``, and ``TIME`` columns, for Python ``bool``, ``decimal.Decimal``, and ``datetime.time`` objects, respectively.
+
+.. note::
+
+   Since ``sqlite3`` converters and adapters are registered globally, importing ``isqlite`` will affect the behavior of all ``sqlite3`` connections in your application, even those that use the ``sqlite3`` module directly.
