@@ -1,6 +1,7 @@
 import collections
 import sqlite3
 import textwrap
+import warnings
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import sqliteparser
@@ -105,6 +106,9 @@ class Database:
         else:
             # Default value of `readonly` if not specified is False.
             readonly = False
+
+        if path == ":memory":
+            warnings.warn("Did you mean to pass `:memory:` instead of `:memory`?")
 
         if not uri:
             if readonly is True:
@@ -778,6 +782,12 @@ class Database:
 
         :param diff: A list of differences, as returned by ``Database.diff``.
         """
+        if self.in_transaction:
+            raise ISqliteError(
+                "`apply_diff` must be called outside a transaction. Did you mean to"
+                + "pass `transaction=False` to the `Database` constructor?"
+            )
+
         with self.transaction(disable_foreign_keys=True):
             for table_diff in diff.values():
                 for op in table_diff:
