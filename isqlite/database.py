@@ -47,7 +47,7 @@ class Database:
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
     debugger: Optional["Debugger"]
-    schema: Dict[str, sqliteparser.ast.CreateTableStatement]
+    schema: Schema
     create_auto_timestamp_columns: List[str]
     update_auto_timestamp_columns: List[str]
 
@@ -755,7 +755,7 @@ class Database:
         for table_in_schema in tables_in_schema:
             name = table_in_schema.name
             if name in tables_in_db:
-                columns_in_database = tables_in_db.pop(table_in_schema.name).columns
+                columns_in_database = tables_in_db[table_in_schema.name].columns
                 columns_in_schema = [column for column in table_in_schema.columns]
                 self._diff_table(diff, name, columns_in_database, columns_in_schema)
             else:
@@ -767,7 +767,9 @@ class Database:
                 )
 
         if table is None:
-            for name in tables_in_db:
+            for name in set(tables_in_db.table_names) - set(
+                table.name for table in tables_in_schema
+            ):
                 diff[name].append(migrations.DropTableMigration(name))
 
         return diff
@@ -1084,15 +1086,15 @@ class Database:
         )
         return columns, joins
 
-    def _get_schema_from_database(
-        self,
-    ) -> Dict[str, sqliteparser.ast.CreateTableStatement]:
-        return {
-            row["name"]: sqliteparser.parse(row["sql"])[0]
-            for row in self.list(
-                "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
-            )
-        }
+    def _get_schema_from_database(self) -> Schema:
+        return Schema(
+            [
+                sqliteparser.parse(row["sql"])[0]
+                for row in self.list(
+                    "sqlite_master", where="type = 'table' AND NOT name LIKE 'sqlite_%'"
+                )
+            ]
+        )
 
 
 class TransactionContextManager:
