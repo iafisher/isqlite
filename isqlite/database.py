@@ -943,21 +943,21 @@ class Database:
         for new_index, column in enumerate(columns_in_schema):
             old_index = columns_in_database_map.get(column.name)
             if old_index is None:
-                # TODO(#55): Re-enable this.
-                # if (
-                #     new_index < len(columns_in_database)
-                #     and column.definition == columns_in_database[new_index].definition
-                # ):
-                #     old_column_name = columns_in_database[new_index].name
-                #     renamed_columns.add(old_column_name)
-                #     diff[table_name].append(
-                #         RenameColumnMigration(table_name, old_column_name, column.name)
-                #     )
-                # else:
-                #     diff[table_name].append(AddColumnMigration(table_name, column))
-                diff[table_name].append(
-                    migrations.AddColumnMigration(table_name, column)
-                )
+                if (
+                    new_index < len(columns_in_database)
+                    and column.definition == columns_in_database[new_index].definition
+                ):
+                    old_column_name = columns_in_database[new_index].name
+                    renamed_columns.add(old_column_name)
+                    diff[table_name].append(
+                        migrations.RenameColumnMigration(
+                            table_name, old_column_name, column.name
+                        )
+                    )
+                else:
+                    diff[table_name].append(
+                        migrations.AddColumnMigration(table_name, str(column))
+                    )
                 continue
 
             if old_index != new_index:

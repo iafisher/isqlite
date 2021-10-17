@@ -3,8 +3,12 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import ColumnDoesNotExistError, Database, ISqliteError, Table
-from isqlite.migrations import RenameColumnMigration
+from isqlite import AutoTable, ColumnDoesNotExistError, Database, ISqliteError, Table
+from isqlite.migrations import (
+    AddColumnMigration,
+    RenameColumnMigration,
+    ReorderColumnsMigration,
+)
 
 from .schema import SCHEMA
 
@@ -431,8 +435,9 @@ class DatabaseTests(unittest.TestCase):
             # The second argument should be a list, not a string.
             self.db.create_table("test_table", "name TEXT NOT NULL")
 
-    @unittest.skip("#55")
-    def test_detect_renaming_column(self):
+
+class DiffTests(unittest.TestCase):
+    def test_diff_column_renamed(self):
         schema_before = [
             Table(
                 "employees",
@@ -459,4 +464,41 @@ class DatabaseTests(unittest.TestCase):
 
             self.assertEqual(
                 table_diff, [RenameColumnMigration("employees", "name", "legal_name")]
+            )
+
+    def test_diff_column_added(self):
+        schema_before = [
+            AutoTable(
+                "events",
+                [
+                    "start DATE",
+                ],
+            ),
+        ]
+        schema_after = [
+            AutoTable(
+                "events",
+                [
+                    "start DATE",
+                    "end DATE",
+                ],
+            ),
+        ]
+
+        with Database(":memory:", transaction=False) as db:
+            db.migrate(schema_before)
+            diff = db.diff(schema_after)
+
+            self.assertEqual(len(diff), 1)
+            table_diff = diff["events"]
+
+            self.assertEqual(
+                table_diff,
+                [
+                    AddColumnMigration("events", '"end"  DATE'),
+                    ReorderColumnsMigration(
+                        "events",
+                        ["id", "start", "end", "created_at", "last_updated_at"],
+                    ),
+                ],
             )

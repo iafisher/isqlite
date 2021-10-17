@@ -22,12 +22,21 @@ Migration limitations
 
 There are some cases in migrations which isqlite cannot handle cleanly.
 
-Renaming columns and tables
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Renaming columns
+^^^^^^^^^^^^^^^^
 
-The automated ``isqlite migrate`` command is not able to detect renamed columns and tables. Instead, it will interpret a renaming as dropping the original column or table and adding a new one with the new name, which will cause all the data to be lost.
+isqlite is able to detect renamed columns, as long as these two conditions are met:
 
-To rename a column or a table safely, use the ``isqlite rename-column`` or ``isqlite rename-table`` commands, and then update the Python schema to use the new name.
+- The renamed column has the same definition as before.
+- The renamed column has the same index in the table's columns as before.
+
+Therefore, renaming a column must be done separately from altering the column or adding, dropping, or reordering other columns in the same table.
+
+
+Renaming tables
+^^^^^^^^^^^^^^^
+
+isqlite cannot automatically detect renamed tables. To rename a table, run ``isqlite rename-table`` and then update the Python schema to use the new name.
 
 
 Renaming columns and tables named elsewhere
@@ -45,7 +54,7 @@ A column may be named by a SQL constraint attached to a different column, e.g.:
 
 And similarly, a table may be named in a different table by a foreign-key constraint.
 
-The ``rename-column`` and ``rename-table`` commands do not check the entire schema for instances of the name to be changed, so any instances that occur outside where the name is defined must be renamed manually (e.g., by ``alter-column`` commands).
+The ``migrate``, ``rename-column``, and ``rename-table`` commands do not check the entire schema for instances of the name to be changed, so any instances that occur outside where the name is defined must be renamed manually (e.g., by ``alter-column`` commands).
 
 Note that isqlite *will* rename all instances of a column in that column's definition. For the ``employees`` table defined below, ``isqlite db.sqlite3 rename-column name legal_name`` would change both the name of the column and the ``CHECK`` constraint to use ``legal_name`` instead of ``name``.
 
