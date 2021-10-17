@@ -24,6 +24,12 @@ class Table:
 
             self.columns[column.name] = column
 
+    @classmethod
+    def from_create_table_statement(
+        cls, stmt: sqliteparser.ast.CreateTableStatement
+    ) -> "Table":
+        return cls(stmt.name, stmt.columns)
+
 
 class AutoTable(Table):
     """
@@ -40,6 +46,12 @@ class AutoTable(Table):
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
         super().__init__(name, columns)
 
+    @classmethod
+    def from_create_table_statement(
+        cls, stmt: sqliteparser.ast.CreateTableStatement
+    ) -> "Table":
+        raise NotImplementedError
+
 
 class Schema:
     """
@@ -50,10 +62,10 @@ class Schema:
         self._tables = collections.OrderedDict((table.name, table) for table in tables)
 
     def __getitem__(self, key: str) -> Table:
-        """
-        Accesses a table by name.
-        """
         return self._tables[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._tables
 
     @property
     def tables(self) -> List[Table]:
@@ -61,3 +73,10 @@ class Schema:
         Returns the tables in the schema as a list.
         """
         return list(self._tables.values())
+
+    @property
+    def table_names(self) -> List[str]:
+        """
+        Returns the names of the tables in the schema as a list.
+        """
+        return list(self._tables.keys())
