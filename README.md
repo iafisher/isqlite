@@ -49,4 +49,4 @@ $ pip install isqlite
 
 
 ## Documentation
-Comprehensive documentation, including the API reference, is available at <https://isqlite.readthedocs.io/en/latest/>.
+Comprehensive documentation, including the API reference, is available at <https://isqlite.readthedocs.io/en/stable/>.
