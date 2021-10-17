@@ -501,13 +501,11 @@ class DiffTests(unittest.TestCase):
 
         with Database(":memory:", transaction=False) as db:
             db.migrate(schema_before)
+
             diff = db.diff(schema_after)
 
-            self.assertEqual(len(diff), 1)
-            table_diff = diff["employees"]
-
             self.assertEqual(
-                table_diff, [RenameColumnMigration("employees", "name", "legal_name")]
+                diff, [RenameColumnMigration("employees", "name", "legal_name")]
             )
 
     def test_diff_column_added(self):
@@ -535,13 +533,11 @@ class DiffTests(unittest.TestCase):
 
         with Database(":memory:", transaction=False) as db:
             db.migrate(schema_before)
+
             diff = db.diff(schema_after)
 
-            self.assertEqual(len(diff), 1)
-            table_diff = diff["events"]
-
             self.assertEqual(
-                table_diff,
+                diff,
                 [
                     AddColumnMigration("events", '"end"  DATE'),
                     ReorderColumnsMigration(

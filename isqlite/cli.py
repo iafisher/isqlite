@@ -559,7 +559,8 @@ def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
         tables_created = 0
         tables_dropped = 0
         printed = False
-        for table, table_diff in diff.items():
+        grouped_diff = group_diff_by_table(diff)
+        for table, table_diff in grouped_diff.items():
             if printed:
                 print()
             else:
@@ -591,12 +592,8 @@ def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
             print(f"Will drop {tables_dropped} table(s).", end="")
 
         if diff:
-            total_ops = (
-                sum(len(table_diff) for table_diff in diff.values())
-                - tables_created
-                - tables_dropped
-            )
-            total_tables = len(diff) - tables_created - tables_dropped
+            total_ops = len(diff) - tables_created - tables_dropped
+            total_tables = len(grouped_diff) - tables_created - tables_dropped
 
             if total_ops > 0:
                 print(
@@ -893,6 +890,13 @@ def get_schema_from_path(schema_path):
     schema_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(schema_module)
     return schema_module.SCHEMA
+
+
+def group_diff_by_table(diff):
+    diff_map = collections.defaultdict(list)
+    for op in diff:
+        diff_map[op.table_name].append(op)
+    return diff_map
 
 
 def report_error_and_exit(message):

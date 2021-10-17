@@ -19,7 +19,7 @@ AUTO_TIMESTAMP_UPDATE_DEFAULT = ("last_updated_at",)
 # Type aliases
 Row = Dict[str, Any]
 Rows = List[Dict]
-Diff = Dict[str, List[migrations.MigrateOperation]]
+Diff = List[migrations.MigrateOperation]
 
 
 class Database:
@@ -751,15 +751,17 @@ class Database:
         tables_in_db = self._get_schema_from_database()
         tables_in_schema = schema.tables if not table else [schema[table]]
 
-        diff: Diff = collections.defaultdict(list)
+        diff = []
         for table_in_schema in tables_in_schema:
             name = table_in_schema.name
             if name in tables_in_db:
                 columns_in_database = tables_in_db[table_in_schema.name].columns
                 columns_in_schema = [column for column in table_in_schema.columns]
-                self._diff_table(diff, name, columns_in_database, columns_in_schema)
+                diff.extend(
+                    self._diff_table(name, columns_in_database, columns_in_schema)
+                )
             else:
-                diff[table_in_schema.name].append(
+                diff.append(
                     migrations.CreateTableMigration(
                         table_in_schema.name,
                         [str(column) for column in table_in_schema.columns],
@@ -770,7 +772,7 @@ class Database:
             for name in set(tables_in_db.table_names) - set(
                 table.name for table in tables_in_schema
             ):
-                diff[name].append(migrations.DropTableMigration(name))
+                diff.append(migrations.DropTableMigration(name))
 
         return diff
 
@@ -793,32 +795,31 @@ class Database:
             )
 
         with self.transaction(disable_foreign_keys=True):
-            for table_diff in diff.values():
-                for op in table_diff:
-                    if isinstance(op, migrations.CreateTableMigration):
-                        self.create_table(op.table_name, op.columns)
-                    elif isinstance(op, migrations.DropTableMigration):
-                        self.drop_table(op.table_name)
-                    elif isinstance(op, migrations.AlterColumnMigration):
-                        self.alter_column(
-                            op.table_name,
-                            op.column.name,
-                            str(op.column.definition)
-                            if op.column.definition is not None
-                            else "",
-                        )
-                    elif isinstance(op, migrations.AddColumnMigration):
-                        self.add_column(op.table_name, op.column)
-                    elif isinstance(op, migrations.DropColumnMigration):
-                        self.drop_column(op.table_name, op.column_name)
-                    elif isinstance(op, migrations.ReorderColumnsMigration):
-                        self.reorder_columns(op.table_name, op.column_names)
-                    elif isinstance(op, migrations.RenameColumnMigration):
-                        self.rename_column(
-                            op.table_name, op.old_column_name, op.new_column_name
-                        )
-                    else:
-                        raise ISqliteError("unknown migration op type")
+            for op in diff:
+                if isinstance(op, migrations.CreateTableMigration):
+                    self.create_table(op.table_name, op.columns)
+                elif isinstance(op, migrations.DropTableMigration):
+                    self.drop_table(op.table_name)
+                elif isinstance(op, migrations.AlterColumnMigration):
+                    self.alter_column(
+                        op.table_name,
+                        op.column.name,
+                        str(op.column.definition)
+                        if op.column.definition is not None
+                        else "",
+                    )
+                elif isinstance(op, migrations.AddColumnMigration):
+                    self.add_column(op.table_name, op.column)
+                elif isinstance(op, migrations.DropColumnMigration):
+                    self.drop_column(op.table_name, op.column_name)
+                elif isinstance(op, migrations.ReorderColumnsMigration):
+                    self.reorder_columns(op.table_name, op.column_names)
+                elif isinstance(op, migrations.RenameColumnMigration):
+                    self.rename_column(
+                        op.table_name, op.old_column_name, op.new_column_name
+                    )
+                else:
+                    raise ISqliteError("unknown migration op type")
 
             self.refresh_schema()
 
@@ -934,11 +935,12 @@ class Database:
 
     def _diff_table(
         self,
-        diff: Diff,
         table_name: str,
         columns_in_database: List[sqliteparser.ast.Column],
         columns_in_schema: List[sqliteparser.ast.Column],
     ) -> Diff:
+        diff: Diff = []
+
         columns_in_database_map = {
             column.name: i for i, column in enumerate(columns_in_database)
         }
@@ -952,15 +954,13 @@ class Database:
                 ):
                     old_column_name = columns_in_database[new_index].name
                     renamed_columns.add(old_column_name)
-                    diff[table_name].append(
+                    diff.append(
                         migrations.RenameColumnMigration(
                             table_name, old_column_name, column.name
                         )
                     )
                 else:
-                    diff[table_name].append(
-                        migrations.AddColumnMigration(table_name, str(column))
-                    )
+                    diff.append(migrations.AddColumnMigration(table_name, str(column)))
                 continue
 
             if old_index != new_index:
@@ -968,9 +968,7 @@ class Database:
 
             old_column = columns_in_database[old_index]
             if old_column != column:
-                diff[table_name].append(
-                    migrations.AlterColumnMigration(table_name, column)
-                )
+                diff.append(migrations.AlterColumnMigration(table_name, column))
 
         columns_in_schema_map = {
             column.name: i for i, column in enumerate(columns_in_schema)
@@ -980,12 +978,10 @@ class Database:
                 column.name not in columns_in_schema_map
                 and column.name not in renamed_columns
             ):
-                diff[table_name].append(
-                    migrations.DropColumnMigration(table_name, column.name)
-                )
+                diff.append(migrations.DropColumnMigration(table_name, column.name))
 
         if reordered:
-            diff[table_name].append(
+            diff.append(
                 migrations.ReorderColumnsMigration(
                     table_name, [column.name for column in columns_in_schema]
                 )
