@@ -236,38 +236,39 @@ class Database:
         *,
         where: str = "",
         values: Dict[str, Any] = {},
+        order_by: Optional[str] = None,
+        descending: Optional[bool] = None,
         get_related: Union[List[str], bool] = [],
-    ) -> Row:
+    ) -> Optional[Row]:
         """
-        Retrieve a single row from the database table and return it as an ``OrderedDict``
-        object.
+        Retrieve a single row from the database table and return it as an
+        ``OrderedDict`` object.
+
+        Equivalent to ``Database.list(*args, **kwargs)[0]`` except that ``None`` is
+        returned if no matching row is found, and the SQLite engine only fetches a
+        single row from the database.
 
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
         :param where: Same as for ``Database.list``.
         :param values: Same as for ``Database.list``.
+        :param order_by: Same as for ``Database.list``.
+        :param descending: Same as for ``Database.list``.
         :param get_related: Same as for ``Database.list``.
         """
-        where_clause = f"WHERE {where}" if where else ""
+        rows = self.list(
+            table,
+            where=where,
+            values=values,
+            order_by=order_by,
+            descending=descending,
+            limit=1,
+            get_related=get_related,
+        )
+        return rows[0] if rows else None
 
-        if get_related:
-            columns, joins = self._get_related_columns_and_joins(table, get_related)
-            row = self.sql(
-                f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}",
-                values,
-                multiple=False,
-            )
-        else:
-            row = self.sql(
-                f"SELECT * FROM {quote(table)} {where_clause}",
-                values,
-                multiple=False,
-            )
-
-        return row
-
-    def get_by_pk(self, table: str, pk: int, **kwargs) -> Row:
+    def get_by_pk(self, table: str, pk: int, **kwargs) -> Optional[Row]:
         """
         Retrieve a single row from the database table by its primary key.
 
@@ -303,7 +304,9 @@ class Database:
         row = self.get(table, where=query, values=data)
         if row is None:
             pk = self.create(table, data, **kwargs)
-            return self.get_by_pk(table, pk)
+            row = self.get_by_pk(table, pk)
+            assert row is not None
+            return row
         else:
             return row
 
