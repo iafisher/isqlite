@@ -106,26 +106,36 @@ class Schema:
 
 
 def diff_schemas(old_schema: Schema, new_schema: Schema) -> Diff:
-    diff = []
-    for new_table in new_schema.tables:
-        name = new_table.name
-        if name in old_schema:
-            diff.extend(diff_tables(old_schema[name], new_table))
-        else:
-            diff.append(
-                migrations.CreateTableMigration(
-                    name,
-                    [str(column) for column in new_table.columns],
-                )
-            )
+    tables_in_old_schema = set(old_schema.table_names)
+    tables_in_new_schema = set(new_schema.table_names)
 
-    for name in set(old_schema.table_names) - set(new_schema.table_names):
-        diff.append(migrations.DropTableMigration(name))
+    diff: Diff = []
+
+    tables_to_create = tables_in_new_schema - tables_in_old_schema
+    for table_name in tables_to_create:
+        table = new_schema[table_name]
+        diff.append(
+            migrations.CreateTableMigration(
+                table_name,
+                [str(column) for column in table.columns],
+            )
+        )
+
+    tables_to_drop = tables_in_old_schema - tables_in_new_schema
+    for table_name in tables_to_drop:
+        diff.append(migrations.DropTableMigration(table_name))
+
+    tables_to_alter = tables_in_old_schema & tables_in_new_schema
+    for table_name in tables_to_alter:
+        old_table = old_schema[table_name]
+        new_table = new_schema[table_name]
+        diff.extend(diff_tables(old_table, new_table))
 
     return diff
 
 
 def diff_tables(old_table: Table, new_table: Table) -> Diff:
+    # TODO(2021-10-17): Clean up this implementation, similar to `diff_schemas`.
     table_name = new_table.name
     diff: Diff = []
 
