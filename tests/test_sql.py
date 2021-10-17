@@ -3,7 +3,8 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import ColumnDoesNotExistError, Database, ISqliteError
+from isqlite import ColumnDoesNotExistError, Database, ISqliteError, Table
+from isqlite.migrations import RenameColumnMigration
 
 from .schema import SCHEMA
 
@@ -429,3 +430,33 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(ISqliteError):
             # The second argument should be a list, not a string.
             self.db.create_table("test_table", "name TEXT NOT NULL")
+
+    @unittest.skip("#55")
+    def test_detect_renaming_column(self):
+        schema_before = [
+            Table(
+                "employees",
+                [
+                    "name TEXT NOT NULL",
+                ],
+            ),
+        ]
+        schema_after = [
+            Table(
+                "employees",
+                [
+                    "legal_name TEXT NOT NULL",
+                ],
+            ),
+        ]
+
+        with Database(":memory:", transaction=False) as db:
+            db.migrate(schema_before)
+            diff = db.diff(schema_after)
+
+            self.assertEqual(len(diff), 1)
+            table_diff = diff["employees"]
+
+            self.assertEqual(
+                table_diff, [RenameColumnMigration("employees", "name", "legal_name")]
+            )
