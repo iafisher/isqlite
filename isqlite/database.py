@@ -268,7 +268,9 @@ class Database:
         )
         return rows[0] if rows else None
 
-    def get_by_pk(self, table: str, pk: int, **kwargs) -> Optional[Row]:
+    def get_by_pk(
+        self, table: str, pk: int, *, get_related: Union[List[str], bool] = []
+    ) -> Optional[Row]:
         """
         Retrieve a single row from the database table by its primary key.
 
@@ -276,10 +278,15 @@ class Database:
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
         :param pk: The primary key of the row to return.
-        :param kwargs: Additional arguments to pass on to ``Database.get``.
+        :param get_related: Passed on to ``Database.get``.
         """
         pk_column = f"{quote(table)}.rowid"
-        return self.get(table, where=f"{pk_column} = :pk", values={"pk": pk}, **kwargs)
+        return self.get(
+            table,
+            where=f"{pk_column} = :pk",
+            values={"pk": pk},
+            get_related=get_related,
+        )
 
     def get_or_insert(self, table: str, data: Row, **kwargs) -> Row:
         """
@@ -399,6 +406,7 @@ class Database:
         data: Row,
         *,
         auto_timestamp_columns: Union[List[str], bool] = True,
+        get_related: Union[List[str], bool] = [],
     ) -> Row:
         """
         Same as ``insert``, except it fetches the row after it is inserted and returns
@@ -415,7 +423,7 @@ class Database:
           omitted from ``data``.
         """
         pk = self.insert(table, data, auto_timestamp_columns=auto_timestamp_columns)
-        row = self.get_by_pk(table, pk)
+        row = self.get_by_pk(table, pk, get_related=get_related)
         assert row is not None
         return row
 
