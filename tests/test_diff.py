@@ -34,6 +34,31 @@ class DiffTests(unittest.TestCase):
             diff, [RenameColumnMigration("employees", "name", "legal_name")]
         )
 
+    def test_diff_column_renamed_with_two_possible_candidates(self):
+        table_before = Table(
+            "employees",
+            [
+                columns.text("first_name", required=True),
+                columns.text("last_name", required=True),
+            ],
+        )
+        table_after = Table(
+            "employees",
+            [
+                columns.text("legal_name", required=True),
+            ],
+        )
+
+        diff = diff_tables(table_before, table_after)
+
+        self.assertEqual(
+            diff,
+            [
+                RenameColumnMigration("employees", "first_name", "legal_name"),
+                DropColumnMigration("employees", "last_name"),
+            ],
+        )
+
     def test_diff_column_added(self):
         table_before = AutoTable(
             "events",
