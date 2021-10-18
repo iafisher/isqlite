@@ -2,7 +2,8 @@ import io
 import tempfile
 import textwrap
 import unittest
-from unittest.mock import patch
+
+from click.testing import CliRunner
 
 from isqlite import Database, cli
 
@@ -24,32 +25,46 @@ class ClearableStringIO(io.StringIO):
 class TemporaryFileTestCase(unittest.TestCase):
     def setUp(self):
         _, self.db_file_path = tempfile.mkstemp()
+        self.runner = CliRunner()
 
     def create_table(self, *, with_data=False):
-        cli.main_create_table(
-            self.db_file_path, "books", ["title TEXT NOT NULL", "author TEXT NOT NULL"]
+        self.invoke(
+            cli.main_create_table,
+            [self.db_file_path, "books", "title TEXT NOT NULL", "author TEXT NOT NULL"],
         )
 
         if with_data:
-            cli.main_insert(
-                self.db_file_path,
-                "books",
-                ["title=Blood Meridian", "author=Cormac McCarthy"],
-                auto_timestamp=False,
+            self.invoke(
+                cli.main_insert,
+                [
+                    self.db_file_path,
+                    "books",
+                    "--no-auto-timestamp",
+                    "title=Blood Meridian",
+                    "author=Cormac McCarthy",
+                ],
             )
+
+    def invoke(self, cli_function, args, *, exit_code=0):
+        result = self.runner.invoke(cli_function, args)
+
+        if exit_code is not None:
+            self.assertEqual(result.exit_code, exit_code)
+
+        return result.output
 
 
 class MigrateTests(TemporaryFileTestCase):
-    @patch("sys.stdout")
-    def test_migration(self, mock_stdout):
+    def test_migration(self):
         # Initial migration to populate the database schema.
-        cli.main_migrate(
-            self.db_file_path,
-            "tests/schema.py",
-            None,
-            no_confirm=True,
-            no_backup=True,
-            debug=False,
+        self.invoke(
+            cli.main_migrate,
+            [
+                self.db_file_path,
+                "tests/schema.py",
+                "--no-confirm",
+                "--no-backup",
+            ],
         )
 
         # Create some database rows.
@@ -96,13 +111,14 @@ class MigrateTests(TemporaryFileTestCase):
             self.assertEqual(db.count("courses"), 1)
 
         # Migrate to a new schema.
-        cli.main_migrate(
-            self.db_file_path,
-            "tests/schema_altered.py",
-            None,
-            no_confirm=True,
-            no_backup=True,
-            debug=False,
+        self.invoke(
+            cli.main_migrate,
+            [
+                self.db_file_path,
+                "tests/schema_altered.py",
+                "--no-confirm",
+                "--no-backup",
+            ],
         )
 
         # Test the database to make sure the migration succeeded.
@@ -154,20 +170,16 @@ class MigrateTests(TemporaryFileTestCase):
 
 
 class OtherCommandsTests(TemporaryFileTestCase):
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_add_column(self, mock_stdout):
+    def test_add_column(self):
         self.create_table(with_data=True)
 
-        cli.main_add_column(
-            self.db_file_path,
-            "books",
-            "pages INTEGER",
+        output = self.invoke(
+            cli.main_add_column, [self.db_file_path, "books", "pages INTEGER"]
         )
-        mock_stdout.clear()
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title           author           pages
@@ -179,24 +191,26 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_alter_column(self, mock_stdout):
+    def test_alter_column(self):
         self.create_table(with_data=True)
 
-        cli.main_alter_column(
-            self.db_file_path,
-            "books",
-            "author TEXT NOT NULL DEFAULT 'unknown'",
+        self.invoke(
+            cli.main_alter_column,
+            [
+                self.db_file_path,
+                "books",
+                "author TEXT NOT NULL DEFAULT 'unknown'",
+            ],
         )
 
-        cli.main_insert(
-            self.db_file_path, "books", ["title=Beowulf"], auto_timestamp=False
+        self.invoke(
+            cli.main_insert,
+            [self.db_file_path, "books", "title=Beowulf", "--no-auto-timestamp"],
         )
-        mock_stdout.clear()
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title           author
@@ -209,39 +223,37 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_count(self, mock_stdout):
-        self.create_table(with_data=True)
-        mock_stdout.clear()
-
-        cli.main_count(self.db_file_path, "books")
-        self.assertEqual(mock_stdout.getvalue(), "1\n")
-
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_delete(self, mock_stdout):
+    def test_count(self):
         self.create_table(with_data=True)
 
-        cli.main_delete(self.db_file_path, "books", 1, no_confirm=True)
-        mock_stdout.clear()
+        output = self.invoke(cli.main_count, [self.db_file_path, "books"])
 
-        cli.main_select(self.db_file_path, "books")
-        self.assertEqual(mock_stdout.getvalue(), "No row founds in table 'books'.\n")
+        self.assertEqual(output, "1\n")
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_drop_column(self, mock_stdout):
+    def test_delete(self):
         self.create_table(with_data=True)
 
-        cli.main_drop_column(
-            self.db_file_path,
-            "books",
-            "author",
-            no_confirm=True,
+        self.invoke(cli.main_delete, [self.db_file_path, "books", "1", "--no-confirm"])
+
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
+        self.assertEqual(output, "No row founds in table 'books'.\n")
+
+    def test_drop_column(self):
+        self.create_table(with_data=True)
+
+        self.invoke(
+            cli.main_drop_column,
+            [
+                self.db_file_path,
+                "books",
+                "author",
+                "--no-confirm",
+            ],
         )
-        mock_stdout.clear()
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title
@@ -253,24 +265,20 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_drop_table(self, mock_stdout):
+    def test_drop_table(self):
         self.create_table()
 
-        cli.main_drop_table(self.db_file_path, "books", no_confirm=True)
-        mock_stdout.clear()
+        self.invoke(cli.main_drop_table, [self.db_file_path, "books", "--no-confirm"])
 
-        cli.main_schema(self.db_file_path)
-        self.assertEqual(mock_stdout.getvalue(), "")
+        output = self.invoke(cli.main_schema, [self.db_file_path])
+        self.assertEqual(output, "")
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_get(self, mock_stdout):
+    def test_get(self):
         self.create_table(with_data=True)
-        mock_stdout.clear()
 
-        cli.main_get(self.db_file_path, "books", 1)
+        output = self.invoke(cli.main_get, [self.db_file_path, "books", "1"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
                 ------  ---------------
@@ -281,24 +289,16 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_schema(self, mock_stdout):
-        self.create_table()
-        mock_stdout.clear()
-
-        cli.main_schema(self.db_file_path)
-        self.assertEqual(mock_stdout.getvalue(), "books\n")
-
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_rename_column(self, mock_stdout):
+    def test_rename_column(self):
         self.create_table(with_data=True)
 
-        cli.main_rename_column(self.db_file_path, "books", "author", "authors")
-        mock_stdout.clear()
+        self.invoke(
+            cli.main_rename_column, [self.db_file_path, "books", "author", "authors"]
+        )
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title           authors
@@ -310,26 +310,24 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_rename_table(self, mock_stdout):
+    def test_rename_table(self):
         self.create_table(with_data=True)
 
-        cli.main_rename_table(self.db_file_path, "books", "books_v2")
-        mock_stdout.clear()
+        self.invoke(cli.main_rename_table, [self.db_file_path, "books", "books_v2"])
 
-        cli.main_schema(self.db_file_path)
-        self.assertEqual(mock_stdout.getvalue(), "books_v2\n")
+        output = self.invoke(cli.main_schema, [self.db_file_path])
+        self.assertEqual(output, "books_v2\n")
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_reorder_columns(self, mock_stdout):
+    def test_reorder_columns(self):
         self.create_table(with_data=True)
 
-        cli.main_reorder_columns(self.db_file_path, "books", ["author", "title"])
-        mock_stdout.clear()
+        self.invoke(
+            cli.main_reorder_columns, [self.db_file_path, "books", "author", "title"]
+        )
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             author           title
@@ -341,14 +339,18 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_search(self, mock_stdout):
-        self.create_table(with_data=True)
-        mock_stdout.clear()
+    def test_schema(self):
+        self.create_table()
 
-        cli.main_search(self.db_file_path, "books", "cormac")
+        output = self.invoke(cli.main_schema, [self.db_file_path])
+        self.assertEqual(output, "books\n")
+
+    def test_search(self):
+        self.create_table(with_data=True)
+
+        output = self.invoke(cli.main_search, [self.db_file_path, "books", "cormac"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title           author
@@ -360,18 +362,23 @@ class OtherCommandsTests(TemporaryFileTestCase):
             ),
         )
 
-    @patch("sys.stdout", new_callable=ClearableStringIO)
-    def test_update(self, mock_stdout):
+    def test_update(self):
         self.create_table(with_data=True)
 
-        cli.main_update(
-            self.db_file_path, "books", 1, ["author=C. McCarthy"], auto_timestamp=False
+        self.invoke(
+            cli.main_update,
+            [
+                self.db_file_path,
+                "books",
+                "1",
+                "author=C. McCarthy",
+                "--no-auto-timestamp",
+            ],
         )
-        mock_stdout.clear()
 
-        cli.main_select(self.db_file_path, "books")
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
         self.assertEqual(
-            mock_stdout.getvalue(),
+            output,
             S(
                 """
             title           author

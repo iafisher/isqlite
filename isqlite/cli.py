@@ -1,10 +1,5 @@
 """
 The implementation of the `isqlite` command-line tool.
-
-A subcommand of `isqlite` called `xyz` will be implemented in a function called
-`main_xyz`, with a corresponding wrapper function called `main_xyz_wrapper` that is
-used by Click, the argument parsing framework. The tests in `tests/test_cli.py` call
-`main_xyz` directly.
 """
 import collections
 import importlib
@@ -51,14 +46,10 @@ def cli():
 @click.argument("db_path")
 @click.argument("table")
 @click.argument("column")
-def main_add_column_wrapper(*args, **kwargs):
+def main_add_column(db_path, table, column):
     """
     Add a column to a table.
     """
-    main_add_column(*args, **kwargs)
-
-
-def main_add_column(db_path, table, column):
     with Database(db_path) as db:
         db.add_column(table, column)
         print(f"Column added to table {table!r}.")
@@ -68,14 +59,10 @@ def main_add_column(db_path, table, column):
 @click.argument("db_path")
 @click.argument("table")
 @click.argument("column")
-def main_alter_column_wrapper(*args, **kwargs):
+def main_alter_column(db_path, table, column):
     """
     Alter a column's definition.
     """
-    return main_alter_column(*args, **kwargs)
-
-
-def main_alter_column(db_path, table, column):
     with Database(db_path) as db:
         column_name, column_def = column.split(maxsplit=1)
         db.alter_column(table, column_name, column_def)
@@ -91,14 +78,10 @@ def main_alter_column(db_path, table, column):
     default=None,
     help="Only count rows with distinct values of this column.",
 )
-def main_count_wrapper(*args, **kwargs):
+def main_count(db_path, table, *, where, distinct):
     """
     Count the number of rows that match the criteria.
     """
-    return main_count(*args, **kwargs)
-
-
-def main_count(db_path, table, *, where=None, distinct=None):
     with Database(db_path) as db:
         print(db.count(table, where=where, distinct=distinct))
 
@@ -107,14 +90,10 @@ def main_count(db_path, table, *, where=None, distinct=None):
 @click.argument("db_path")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
-def main_create_table_wrapper(*args, **kwargs):
+def main_create_table(db_path, table, columns):
     """
     Create a table.
     """
-    main_create_table(*args, **kwargs)
-
-
-def main_create_table(db_path, table, columns):
     with Database(db_path) as db:
         db.create_table(table, columns)
         print(f"Table {table!r} created.")
@@ -131,14 +110,10 @@ def main_create_table(db_path, table, columns):
     default=False,
     help=HELP_NO_CONFIRM,
 )
-def main_delete_wrapper(*args, **kwargs):
+def main_delete(db_path, table, pk, *, where, no_confirm):
     """
     Delete a row.
     """
-    main_delete(*args, **kwargs)
-
-
-def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
     with Database(db_path) as db:
         if pk is not None:
             try:
@@ -194,14 +169,10 @@ def main_delete(db_path, table, pk=None, *, where="", no_confirm=False):
 @click.argument("db_path")
 @click.argument("schema_path")
 @click.option("--table", default=None)
-def main_diff_wrapper(*args, **kwargs):
+def main_diff(db_path, schema_path, table):
     """
     Diff the database against the Python schema.
     """
-    main_diff(*args, **kwargs)
-
-
-def main_diff(db_path, schema_path, table):
     schema = get_schema_from_path(schema_path)
     with Database(db_path, readonly=True) as db:
         _diff(db, schema, table)
@@ -260,14 +231,10 @@ def _diff(db, schema, table):
     default=False,
     help=HELP_NO_CONFIRM,
 )
-def main_drop_column_wrapper(*args, **kwargs):
+def main_drop_column(db_path, table, column, *, no_confirm):
     """
     Drop a column from a table.
     """
-    main_drop_column(*args, **kwargs)
-
-
-def main_drop_column(db_path, table, column, *, no_confirm=False):
     if not no_confirm:
         with Database(db_path) as db:
             count = db.count(table)
@@ -296,14 +263,10 @@ def main_drop_column(db_path, table, column, *, no_confirm=False):
     default=False,
     help=HELP_NO_CONFIRM,
 )
-def main_drop_table_wrapper(*args, **kwargs):
+def main_drop_table(db_path, table, *, no_confirm):
     """
     Drop a table from the database.
     """
-    main_drop_table(*args, **kwargs)
-
-
-def main_drop_table(db_path, table, *, no_confirm=False):
     with Database(db_path) as db:
         if not no_confirm:
             count = db.count(table)
@@ -328,14 +291,10 @@ def main_drop_table(db_path, table, *, no_confirm=False):
 @click.option(
     "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
-def main_get_wrapper(*args, **kwargs):
+def main_get(db_path, table, pk, *, plain_foreign_keys):
     """
     Fetch a single row.
     """
-    main_get(*args, **kwargs)
-
-
-def main_get(db_path, table, pk, *, plain_foreign_keys=False):
     with Database(db_path, readonly=True) as db:
         row = db.get_by_pk(table, pk, get_related=not plain_foreign_keys)
         if not plain_foreign_keys:
@@ -354,15 +313,14 @@ def main_get(db_path, table, pk, *, plain_foreign_keys=False):
 @click.argument("table")
 @click.argument("payload", nargs=-1)
 @click.option(
-    "--auto-timestamp",
-    is_flag=True,
+    "--auto-timestamp/--no-auto-timestamp",
     default=True,
     help=(
         "Automatically populate `created_at` and `last_updated_at` columns with "
         + "current time."
     ),
 )
-def main_insert_wrapper(*args, **kwargs):
+def main_insert(db_path, table, payload, *, auto_timestamp=True):
     """
     Create a new row non-interactively.
 
@@ -370,10 +328,6 @@ def main_insert_wrapper(*args, **kwargs):
 
         isqlite insert --db db.sqlite3 my_table a=1 b=2
     """
-    return main_insert(*args, **kwargs)
-
-
-def main_insert(db_path, table, payload, *, auto_timestamp=True):
     if not payload:
         report_error_and_exit("payload must not be empty")
 
@@ -392,52 +346,6 @@ def main_insert(db_path, table, payload, *, auto_timestamp=True):
             table, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
         )
         print(f"Row {pk} created.")
-
-
-@cli.command(name="schema")
-@click.argument("db_path")
-@click.argument("table", required=False, default=None)
-@click.option("--as-python", is_flag=True, default=False)
-def main_schema_wrapper(*args, **kwargs):
-    """
-    List the names of the tables in the database.
-    """
-    main_schema(*args, **kwargs)
-
-
-def main_schema(db_path, table=None, *, as_python=False):
-    with Database(db_path, readonly=True) as db:
-        if table is not None:
-            row = db.get(
-                "sqlite_master",
-                where="type = 'table' AND name = :table",
-                values={"table": table},
-            )
-            sql = row["sql"]
-
-            if as_python:
-                raise NotImplementedError
-            else:
-                try:
-                    # Use sqliteparser to parse and pretty-print the table schema.
-                    create_table_statement = sqliteparser.parse(sql)[0]
-                    print(create_table_statement)
-                except sqliteparser.SQLiteParserError:
-                    # If sqliteparser can't parse the table schema, just directly print
-                    # what SQLite returned to us.
-                    print(sql)
-        else:
-            if as_python:
-                raise NotImplementedError
-            else:
-                rows = db.select(
-                    "sqlite_master",
-                    where="type = 'table' AND name NOT LIKE 'sqlite_%'",
-                    order_by="name",
-                )
-
-            if rows:
-                print("\n".join(row["name"] for row in rows))
 
 
 @cli.command(name="migrate")
@@ -462,14 +370,10 @@ def main_schema(db_path, table=None, *, as_python=False):
     default=False,
     help="Run the database in debug mode.",
 )
-def main_migrate_wrapper(*args, **kwargs):
+def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
     """
     Migrate the database to match the Python schema.
     """
-    main_migrate(*args, **kwargs)
-
-
-def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
     schema = get_schema_from_path(schema_path)
     with Database(db_path, transaction=False, debug=debug) as db:
         diff, data_dropped = _diff(db, schema, table)
@@ -516,14 +420,10 @@ def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
 @click.argument("table")
 @click.argument("old_name")
 @click.argument("new_name")
-def main_rename_column_wrapper(*args, **kwargs):
+def main_rename_column(db_path, table, old_name, new_name):
     """
     Rename a column.
     """
-    main_rename_column(*args, **kwargs)
-
-
-def main_rename_column(db_path, table, old_name, new_name):
     with Database(db_path) as db:
         db.rename_column(table, old_name, new_name)
         print(f"Column {old_name!r} renamed to {new_name!r} in table {table!r}.")
@@ -533,14 +433,10 @@ def main_rename_column(db_path, table, old_name, new_name):
 @click.argument("db_path")
 @click.argument("table")
 @click.argument("new_name")
-def main_rename_table_wrapper(*args, **kwargs):
+def main_rename_table(db_path, table, new_name):
     """
     Rename a table.
     """
-    main_rename_table(*args, **kwargs)
-
-
-def main_rename_table(db_path, table, new_name):
     with Database(db_path) as db:
         db.rename_table(table, new_name)
         print(f"Table {table!r} renamed to {new_name!r}.")
@@ -550,17 +446,55 @@ def main_rename_table(db_path, table, new_name):
 @click.argument("db_path")
 @click.argument("table")
 @click.argument("columns", nargs=-1)
-def main_reorder_columns_wrapper(*args, **kwargs):
+def main_reorder_columns(db_path, table, columns):
     """
     Change the order of columns in a table.
     """
-    main_reorder_columns(*args, **kwargs)
-
-
-def main_reorder_columns(db_path, table, columns):
     with Database(db_path) as db:
         db.reorder_columns(table, columns)
         print(f"Columns of table {table!r} reordered.")
+
+
+@cli.command(name="schema")
+@click.argument("db_path")
+@click.argument("table", required=False, default=None)
+@click.option("--as-python", is_flag=True, default=False)
+def main_schema(db_path, table, *, as_python):
+    """
+    List the names of the tables in the database.
+    """
+    with Database(db_path, readonly=True) as db:
+        if table is not None:
+            row = db.get(
+                "sqlite_master",
+                where="type = 'table' AND name = :table",
+                values={"table": table},
+            )
+            sql = row["sql"]
+
+            if as_python:
+                raise NotImplementedError
+            else:
+                try:
+                    # Use sqliteparser to parse and pretty-print the table schema.
+                    create_table_statement = sqliteparser.parse(sql)[0]
+                    print(create_table_statement)
+                except sqliteparser.SQLiteParserError:
+                    # If sqliteparser can't parse the table schema, just directly print
+                    # what SQLite returned to us.
+                    print(sql)
+        else:
+            if as_python:
+                raise NotImplementedError
+            else:
+                rows = db.select(
+                    "sqlite_master",
+                    where="type = 'table' AND name NOT LIKE 'sqlite_%'",
+                    order_by="name",
+                )
+
+            if rows:
+                print("\n".join(row["name"] for row in rows))
 
 
 @cli.command(name="search")
@@ -578,28 +512,24 @@ def main_reorder_columns(db_path, table, columns):
 @click.option(
     "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
-def main_search_wrapper(*args, **kwargs):
-    """
-    Shorthand for `select <table> -s <query>`
-    """
-    main_search(*args, **kwargs)
-
-
 def main_search(
     db_path,
     table,
     query,
     *,
-    where="",
-    columns=[],
-    hide=[],
-    page=1,
-    limit=None,
-    offset=None,
-    order_by=[],
-    desc=False,
-    plain_foreign_keys=False,
+    where,
+    columns,
+    hide,
+    page,
+    limit,
+    offset,
+    order_by,
+    desc,
+    plain_foreign_keys,
 ):
+    """
+    Shorthand for `select <table> -s <query>`
+    """
     base_select(
         db_path,
         table,
@@ -631,28 +561,24 @@ def main_search(
 @click.option(
     "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
-def main_select_wrapper(*args, **kwargs):
-    """
-    List the rows in the table, optionally filtered by a SQL clause.
-    """
-    main_select(*args, **kwargs)
-
-
 def main_select(
     db_path,
     table,
     *,
-    where=None,
-    search="",
-    columns=[],
-    hide=[],
-    page=1,
-    limit=None,
-    offset=None,
-    order_by=[],
-    desc=False,
-    plain_foreign_keys=False,
+    where,
+    search,
+    columns,
+    hide,
+    page,
+    limit,
+    offset,
+    order_by,
+    desc,
+    plain_foreign_keys,
 ):
+    """
+    List the rows in the table, optionally filtered by a SQL clause.
+    """
     base_select(
         db_path,
         table,
@@ -784,12 +710,11 @@ def main_sql(db_path, query, *, columns, hide, page, write):
 @click.argument("pk", type=int)
 @click.argument("payload", nargs=-1)
 @click.option(
-    "--auto-timestamp",
-    is_flag=True,
+    "--auto-timestamp/--no-auto-timestamp",
     default=True,
     help="Automatically populate `last_updated_at` column with current time.",
 )
-def main_update_wrapper(*args, **kwargs):
+def main_update(db_path, table, pk, payload, *, auto_timestamp):
     """
     Update an existing row non-interactively.
 
@@ -797,10 +722,6 @@ def main_update_wrapper(*args, **kwargs):
 
         isqlite update --db db.sqlite3 my_table 123 a=1 b=2
     """
-    main_update(*args, **kwargs)
-
-
-def main_update(db_path, table, pk, payload, *, auto_timestamp=True):
     if not payload:
         report_error_and_exit("payload must not be empty")
 
