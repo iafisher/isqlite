@@ -1,14 +1,16 @@
 import unittest
 
-from isqlite import AutoTable, Table, columns
+from isqlite import AutoTable, Schema, Table, columns
 from isqlite.migrations import (
     AddColumnMigration,
     AlterColumnMigration,
+    CreateTableMigration,
     DropColumnMigration,
+    DropTableMigration,
     RenameColumnMigration,
     ReorderColumnsMigration,
 )
-from isqlite.schema import diff_tables
+from isqlite.schema import diff_schemas, diff_tables
 
 
 class DiffTests(unittest.TestCase):
@@ -141,5 +143,31 @@ class DiffTests(unittest.TestCase):
                         "last_updated_at",
                     ],
                 )
+            ],
+        )
+
+    def test_diff_table_dropped(self):
+        schema_before = Schema([Table("x", ["bar TEXT"]), Table("y", ["foo TEXT"])])
+        schema_after = Schema([Table("y", ["foo TEXT"])])
+
+        diff = diff_schemas(schema_before, schema_after)
+
+        self.assertEqual(
+            diff,
+            [
+                DropTableMigration("x"),
+            ],
+        )
+
+    def test_diff_table_created(self):
+        schema_before = Schema([Table("y", ["foo TEXT"])])
+        schema_after = Schema([Table("x", ["bar TEXT"]), Table("y", ["foo TEXT"])])
+
+        diff = diff_schemas(schema_before, schema_after)
+
+        self.assertEqual(
+            diff,
+            [
+                CreateTableMigration("x", ['"bar"  TEXT']),
             ],
         )
