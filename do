@@ -27,14 +27,15 @@ main() {
       exit 1
     fi
 
-    changed_files="$(git diff --name-only) $(git diff --cached --name-only)"
+    # Look for changed files excluding the change log.
+    changed_files="$(git_diff) $(git_diff --cached)"
     # Trim whitespace, courtesy of https://stackoverflow.com/questions/369758/
     changed_files=$(echo "$changed_files" | xargs)
     if [[ -n "$changed_files" ]]; then
       echo "Files changed in repository:"
       echo
-      git diff --name-only
-      git diff --cached --name-only
+      git_diff
+      git_diff --cached
       echo
       echo "Aborting."
       exit 1
@@ -51,6 +52,7 @@ main() {
     echo "=== Replacing the version number in setup.py ==="
     sed -i "s/version=\".*\"/version=\"$version\"/" setup.py
     git add setup.py
+    git add CHANGELOG.md
     git commit -m "Bump to version $version"
 
     echo
@@ -78,6 +80,11 @@ main() {
   else
     usage
   fi
+}
+
+git_diff() {
+  # Diff the repo, except the change log.
+  git diff "$@" --name-only -- . :^CHANGELOG.md
 }
 
 usage() {
