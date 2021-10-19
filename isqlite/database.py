@@ -378,7 +378,9 @@ class Database:
             auto_timestamp_columns_list = auto_timestamp_columns
 
         keys = list(data.keys())
-        placeholders = ",".join("?" for _ in range(len(keys)))
+        # Profiling revealed that constructing the placeholder string in this fashion
+        # is significantly faster than using ``join``.
+        placeholders = ("?," * len(keys))[:-1]
         values = list(data.values())
 
         extra_columns_list = []
@@ -503,7 +505,7 @@ class Database:
         """
         if isinstance(auto_timestamp_columns, bool):
             if auto_timestamp_columns is True:
-                auto_timestamp_columns_list = self.insert_auto_timestamp_columns
+                auto_timestamp_columns_list = self.update_auto_timestamp_columns
             else:
                 auto_timestamp_columns_list = []
         else:
