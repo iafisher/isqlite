@@ -27,6 +27,11 @@ main() {
       exit 1
     fi
 
+    if [[ "$version" < "$current_version" ]]; then
+      echo "New version is less than current version. Aborting."
+      exit 1
+    fi
+
     # Look for changed files excluding the change log.
     changed_files="$(git_diff) $(git_diff --cached)"
     # Trim whitespace, courtesy of https://stackoverflow.com/questions/369758/
