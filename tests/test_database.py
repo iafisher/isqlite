@@ -220,6 +220,27 @@ class DatabaseTests(unittest.TestCase):
         course = self.db.get_by_pk("courses", 1, get_related=True)
         self.assertEqual(course["department"]["name"], "Computer Science")
 
+    def test_get_or_insert_with_existing_row(self):
+        student = self.db.get_by_pk("students", 1)
+        new_student = self.db.get_or_insert("students", student)
+        self.assertEqual(student["id"], new_student["id"])
+
+    def test_get_or_insert_with_new_row(self):
+        n = self.db.count("students")
+        student = self.db.get_or_insert(
+            "students",
+            {
+                "student_id": 123,
+                "first_name": "John",
+                "last_name": "Doe",
+                "major": None,
+                "graduation_year": 2021,
+            },
+        )
+
+        self.assertEqual(student["first_name"], "John")
+        self.assertEqual(self.db.count("students"), n + 1)
+
     def test_update_with_pk(self):
         professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])

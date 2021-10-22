@@ -318,10 +318,7 @@ class Database:
         query = " AND ".join(f"{key} = :{key}" for key in data)
         row = self.get(table, where=query, values=data)
         if row is None:
-            pk = self.insert(table, data, **kwargs)
-            row = self.get_by_pk(table, pk)
-            assert row is not None
-            return row
+            return self.insert_and_get(table, data, **kwargs)
         else:
             return row
 
