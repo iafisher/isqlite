@@ -487,9 +487,9 @@ class Database:
         where: str = "",
         values: Dict[str, Any] = {},
         auto_timestamp_columns: Union[List[str], bool] = True,
-    ) -> None:
+    ) -> int:
         """
-        Update an existing row.
+        Update existing rows and return the number of rows updated.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
@@ -535,10 +535,11 @@ class Database:
         if self.debugger:
             self.debugger.execute(sql, values)
         self.cursor.execute(sql, values)
+        return self.cursor.rowcount
 
-    def update_by_pk(self, table: str, pk: int, data: Row, **kwargs) -> None:
+    def update_by_pk(self, table: str, pk: int, data: Row, **kwargs) -> bool:
         """
-        Update a single row.
+        Update a single row and return whether it was updated or not.
 
         :param table: The database table. WARNING: This value is directly interpolated
             into the SQL statement. Do not pass untrusted input, to avoid SQL injection
@@ -548,12 +549,14 @@ class Database:
         :param kwargs: Additional arguments to pass on to ``Database.update``.
         """
         pk_column = f"{quote(table)}.rowid"
-        return self.update(
-            table,
-            data,
-            where=f"{pk_column} = :pk",
-            values={"pk": pk},
-            **kwargs,
+        return bool(
+            self.update(
+                table,
+                data,
+                where=f"{pk_column} = :pk",
+                values={"pk": pk},
+                **kwargs,
+            )
         )
 
     def delete(self, table: str, *, where: str, values: Dict[str, Any] = {}) -> None:

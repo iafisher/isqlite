@@ -223,21 +223,25 @@ class DatabaseTests(unittest.TestCase):
     def test_update_with_pk(self):
         professor = self.db.get("professors", where="last_name = 'Knuth'")
         self.assertFalse(professor["retired"])
-        self.db.update_by_pk(
+        updated = self.db.update_by_pk(
             "professors",
             professor["id"],
             {"retired": True},
         )
         professor = self.db.get_by_pk("professors", professor["id"])
+
+        self.assertTrue(updated)
         self.assertTrue(professor["retired"])
 
     def test_update_with_query(self):
         self.assertEqual(self.db.count("students", where="graduation_year > 2025"), 0)
-        self.db.update(
+        n = self.db.update(
             "students",
             {"graduation_year": 2026},
             where="graduation_year < 2025",
         )
+
+        self.assertEqual(n, 3)
         self.assertEqual(self.db.count("students", where="graduation_year > 2025"), 3)
 
     def test_update_with_full_object(self):
@@ -246,13 +250,14 @@ class DatabaseTests(unittest.TestCase):
 
         professor["retired"] = True
         time.sleep(0.1)
-        self.db.update_by_pk(
+        updated = self.db.update_by_pk(
             "professors",
             professor["id"],
             professor,
         )
 
         updated_professor = self.db.get_by_pk("professors", professor["id"])
+        self.assertTrue(updated)
         self.assertTrue(updated_professor["retired"])
         self.assertEqual(professor["id"], updated_professor["id"])
 

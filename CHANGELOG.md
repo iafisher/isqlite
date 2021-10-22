@@ -5,7 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ## Unreleased
-Nothing yet.
+### Changed
+- `Database.update` now returns the count of rows updated, and `Database.update_by_pk` returns a boolean indicating whether or not the row was updated.
 
 
 ## [1.2.0] - 2021-10-19
