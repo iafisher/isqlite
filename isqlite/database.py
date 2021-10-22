@@ -58,6 +58,7 @@ class Database:
         readonly: Optional[bool] = None,
         uri: bool = False,
         cached_statements: int = 100,
+        enforce_foreign_keys: bool = True,
         insert_auto_timestamp_columns: List[str] = [],
         update_auto_timestamp_columns: List[str] = [],
     ) -> None:
@@ -91,6 +92,8 @@ class Database:
         :param uri: If true, the ``path`` argument is interpreted as a URI rather than a
             file path.
         :param cached_statements: Passed on to ``sqlite3.connect``.
+        :param enforce_foreign_keys: If true, foreign-key constraint enforcement will be
+            turned out with `PRAGMA foreign_keys = 1`.
         :param insert_auto_timestamp_columns: A default value for
             ``auto_timestamp_columns`` in ``insert`` and ``insert_many``. Usually set to
             ``["created_at", "last_updated_at"]`` in conjunction with a schema defined
@@ -139,9 +142,11 @@ class Database:
         self.connection.row_factory = ordered_dict_row_factory
         self.cursor = self.connection.cursor()
 
-        # This must be executed outside a transaction, according to the official
-        # SQLite docs: https://sqlite.org/pragma.html#pragma_foreign_keys
-        self.sql("PRAGMA foreign_keys = 1")
+        if enforce_foreign_keys:
+            # This must be executed outside a transaction, according to the official
+            # SQLite docs: https://sqlite.org/pragma.html#pragma_foreign_keys
+            self.sql("PRAGMA foreign_keys = 1")
+
         if transaction:
             self.sql("BEGIN")
 
