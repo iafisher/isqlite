@@ -17,7 +17,7 @@ main() {
     fi
     version="$2"
     # Remove leading 'v' from version, if present.
-    version="${version%v}"
+    version="${version#v}"
 
     # Courtesy of https://unix.stackexchange.com/questions/13466/
     current_version=$(grep -oP 'version="\K[0-9.]+' setup.py)
