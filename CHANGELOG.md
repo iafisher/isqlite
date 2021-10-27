@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 - `Database.update` now returns the count of rows updated, and `Database.update_by_pk` returns a boolean indicating whether or not the row was updated.
 
+### Fixed
+- Thanks to upstream fixes in the sqliteparser library, isqlite can now handle some SQL syntax it would previously choke on, including `VARCHAR(...)` column types, multi-word column types, and `NULL` column constraints.
+
 
 ## [1.2.0] - 2021-10-19
 ### Fixed
