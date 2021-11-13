@@ -13,7 +13,7 @@ import click
 import sqliteparser
 from tabulate import tabulate
 
-from . import Database, migrations
+from . import Database, Schema, migrations
 
 # Help strings used in multiple places.
 HELP_COLUMNS = "Only display these columns in the results."
@@ -833,7 +833,16 @@ def get_schema_from_path(schema_path):
 
     schema_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(schema_module)
-    return schema_module.SCHEMA
+
+    try:
+        schema = schema_module.SCHEMA
+    except AttributeError:
+        report_error_and_exit(f"did not find SCHEMA variable in {schema_path}")
+
+    if not isinstance(schema, Schema):
+        report_error_and_exit("SCHEMA must be an isqlite.Schema object")
+
+    return schema
 
 
 def group_diff_by_table(diff):

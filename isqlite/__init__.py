@@ -6,9 +6,9 @@ import sqlite3
 from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
 
 from . import columns, migrations
-from .database import (
+from .database import Database
+from .exceptions import (
     ColumnDoesNotExistError,
-    Database,
     ISqliteApiError,
     ISqliteError,
     TableDoesNotExistError,

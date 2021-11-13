@@ -8,6 +8,12 @@ import sqliteparser
 from sqliteparser import quote
 
 from . import migrations
+from .exceptions import (
+    ColumnDoesNotExistError,
+    ISqliteApiError,
+    ISqliteError,
+    TableDoesNotExistError,
+)
 from .schema import Diff, Schema, diff_schemas, diff_tables, rename_column
 
 CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
@@ -1159,19 +1165,3 @@ class Debugger:
         print(textwrap.indent(f"Values: {values!r}", "  "))
         print()
         print("=== END SQL DEBUGGER ===")
-
-
-class ISqliteError(Exception):
-    pass
-
-
-class ISqliteApiError(ISqliteError):
-    pass
-
-
-class ColumnDoesNotExistError(ISqliteError):
-    pass
-
-
-class TableDoesNotExistError(ISqliteError):
-    pass

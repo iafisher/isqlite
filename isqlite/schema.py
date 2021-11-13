@@ -7,6 +7,7 @@ import sqliteparser
 from . import migrations
 from .columns import primary_key as primary_key_column
 from .columns import timestamp as timestamp_column
+from .exceptions import ColumnDoesNotExistError, TableDoesNotExistError
 
 # Type alias
 Diff = List[migrations.MigrateOperation]
@@ -39,7 +40,10 @@ class Table:
         return cls(stmt.name, stmt.columns)
 
     def __getitem__(self, key: str) -> sqliteparser.ast.Column:
-        return self._columns[key]
+        try:
+            return self._columns[key]
+        except KeyError:
+            raise ColumnDoesNotExistError(key)
 
     def __contains__(self, key: str) -> bool:
         return key in self._columns
@@ -85,7 +89,10 @@ class Schema:
         self._tables = collections.OrderedDict((table.name, table) for table in tables)
 
     def __getitem__(self, key: str) -> Table:
-        return self._tables[key]
+        try:
+            return self._tables[key]
+        except KeyError:
+            raise TableDoesNotExistError(key)
 
     def __contains__(self, key: str) -> bool:
         return key in self._tables
