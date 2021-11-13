@@ -28,7 +28,7 @@ SCHEMA = Schema(
             "courses",
             columns=[
                 columns.primary_key("id"),
-                columns.integer("course_number"),
+                columns.integer("course_number", unique=True),
                 columns.foreign_key("department", foreign_table="departments"),
                 columns.foreign_key("instructor", foreign_table="professors"),
                 columns.text("title"),

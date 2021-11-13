@@ -10,13 +10,17 @@ def _base(
     required: bool = True,
     choices: List[Any] = [],
     default: Optional[Any] = None,
-    constraints=[]
+    unique: bool = False,
+    constraints=[],
 ) -> ast.Column:
     if required:
         constraints = [_not_null_constraint()] + constraints
 
     if choices:
         constraints.append(_choices_constraint(name, choices, required=required))
+
+    if unique:
+        constraints.append(ast.UniqueConstraint())
 
     return ast.Column(
         name=name,
@@ -41,21 +45,29 @@ def boolean(
 
 
 def date(
-    name: str, *, required: bool = True, default: Optional[str] = None
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[str] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A ``DATE`` column for values in ISO 8601 format, e.g. ``2021-01-01``.
     """
-    return _base(name, "DATE", required=required, default=default)
+    return _base(name, "DATE", required=required, default=default, unique=unique)
 
 
 def decimal(
-    name: str, *, required: bool = True, default: Optional[int] = None
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[int] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A ``DECIMAL`` column.
     """
-    return _base(name, "DECIMAL", required=required, default=default)
+    return _base(name, "DECIMAL", required=required, default=default, unique=unique)
 
 
 def foreign_key(
@@ -63,7 +75,8 @@ def foreign_key(
     foreign_table: str,
     *,
     required: bool = True,
-    on_delete=ast.OnDelete.SET_NULL
+    on_delete=ast.OnDelete.SET_NULL,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A foreign key column.
@@ -76,7 +89,9 @@ def foreign_key(
             on_delete=on_delete,
         )
     ]
-    return _base(name, "INTEGER", required=required, constraints=constraints)
+    return _base(
+        name, "INTEGER", required=required, unique=unique, constraints=constraints
+    )
 
 
 def integer(
@@ -86,7 +101,8 @@ def integer(
     choices: List[int] = [],
     default: Optional[int] = None,
     max: Optional[int] = None,
-    min: Optional[int] = None
+    min: Optional[int] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     An ``INTEGER`` column.
@@ -104,6 +120,7 @@ def integer(
         required=required,
         choices=choices,
         default=default,
+        unique=unique,
         constraints=constraints,
     )
 
@@ -123,7 +140,8 @@ def text(
     *,
     required: bool = True,
     choices: List[str] = [],
-    default: Optional[str] = None
+    default: Optional[str] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A ``TEXT`` column.
@@ -145,6 +163,9 @@ def text(
             _choices_constraint(name, choices, required=required, text=True)
         )
 
+    if unique:
+        constraints.append(ast.UniqueConstraint())
+
     return ast.Column(
         name=name,
         definition=ast.ColumnDefinition(
@@ -156,22 +177,30 @@ def text(
 
 
 def time(
-    name: str, *, required: bool = True, default: Optional[str] = None
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[str] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A ``TIME`` column for values in HH:MM:SS format
     """
-    return _base(name, "TIME", required=required, default=default)
+    return _base(name, "TIME", required=required, default=default, unique=unique)
 
 
 def timestamp(
-    name: str, *, required: bool = True, default: Optional[str] = None
+    name: str,
+    *,
+    required: bool = True,
+    default: Optional[str] = None,
+    unique: bool = False,
 ) -> ast.Column:
     """
     A ``TIMESTAMP`` column for values in ISO 8601 format, e.g.
     ``2021-01-01 01:00:00.00``.
     """
-    return _base(name, "TIMESTAMP", required=required, default=default)
+    return _base(name, "TIMESTAMP", required=required, default=default, unique=unique)
 
 
 def _not_null_constraint():

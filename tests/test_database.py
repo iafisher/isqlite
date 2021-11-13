@@ -3,7 +3,14 @@ import sqlite3
 import time
 import unittest
 
-from isqlite import ColumnDoesNotExistError, Database, ISqliteError, Schema, Table
+from isqlite import (
+    ColumnDoesNotExistError,
+    Database,
+    ISqliteError,
+    Schema,
+    Table,
+    columns,
+)
 
 from .schema import SCHEMA
 
@@ -521,3 +528,11 @@ class DatabaseTests(unittest.TestCase):
             # Make sure our data is still there.
             row = db.get_by_pk("t", pk)
             self.assertIsNone(row["name"])
+
+    def test_unique_constraint(self):
+        schema = Schema([Table("t", [columns.text("name", unique=True)])])
+        with Database(":memory:", transaction=False) as db:
+            db.migrate(schema)
+            db.insert("t", {"name": "John"})
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.insert("t", {"name": "John"})
