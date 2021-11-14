@@ -166,6 +166,19 @@ class DatabaseTests(unittest.TestCase):
         non_existent = self.db.get("professors", where="first_name = 'Bob'")
         self.assertIsNone(non_existent)
 
+    def test_get_with_certain_columns(self):
+        professor = self.db.get(
+            "professors",
+            where="last_name = :last_name",
+            values={"last_name": "Knuth"},
+            columns=["department"],
+        )
+
+        department = self.db.get_by_pk("departments", professor["department"])
+        self.assertEqual(department["name"], "Computer Science")
+
+        self.assertEqual(list(professor.keys()), ["department"])
+
     def test_get_with_non_existent_table(self):
         with self.assertRaises(sqlite3.OperationalError):
             self.db.get("deans")
@@ -336,6 +349,31 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertEqual(len(self.db.select("students", limit=5)), 5)
 
+    def test_select_with_certain_columns(self):
+        for i in range(100):
+            self.db.insert(
+                "students",
+                {
+                    "student_id": i,
+                    "first_name": "Jane",
+                    "last_name": "Doe",
+                    "major": None,
+                    "graduation_year": 2025,
+                },
+            )
+
+        students = self.db.select(
+            "students",
+            where="graduation_year = 2025 AND first_name = 'Jane'",
+            columns=["first_name", "last_name"],
+        )
+        self.assertEqual(len(students), 100)
+        self.assertEqual(students[0]["first_name"], "Jane")
+        self.assertEqual(students[0]["last_name"], "Doe")
+        self.assertTrue(
+            all(list(s.keys()) == ["first_name", "last_name"] for s in students)
+        )
+
     def test_select_with_get_related(self):
         courses = self.db.select("courses", get_related=True, order_by="course_number")
         self.assertEqual(len(courses), 2)
@@ -345,6 +383,21 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(courses[1]["department"]["name"], "Computer Science")
         self.assertEqual(courses[1]["instructor"]["first_name"], "Donald")
         self.assertEqual(courses[1]["instructor"]["last_name"], "Knuth")
+
+    def test_select_with_columns_and_get_related(self):
+        courses = self.db.select(
+            "courses",
+            columns=["course_number", "department"],
+            get_related=["department"],
+            order_by="course_number",
+        )
+
+        self.assertEqual(len(courses), 2)
+        self.assertEqual(courses[0]["department"]["name"], "Linguistics")
+        self.assertEqual(courses[1]["department"]["name"], "Computer Science")
+
+        self.assertEqual(list(courses[0].keys()), ["course_number", "department"])
+        self.assertEqual(list(courses[1].keys()), ["course_number", "department"])
 
     def test_add_column(self):
         self.db.add_column("professors", "year_of_hire INTEGER")

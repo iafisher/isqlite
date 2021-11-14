@@ -8,6 +8,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 ## Unreleased
 ### Added
+- `Database.select`, `Database.get`, and related methods now accept a `columns` parameter to specify the set of columns to be returned for each row. (#63)
 - The `Database` constructor now accepts a parameter `enforce_foreign_keys` which can be set to false to turn off foreign-key constraint enforcement.
 - All `columns` constructors except `boolean` and `primary_key` now accept a `unique` parameter to enforce a SQL `UNIQUE` constraint. (#64)
 - `isqlite create` as an alias for `isqlite insert` and `isqlite list` as an alias for `isqlite select`. (#61)

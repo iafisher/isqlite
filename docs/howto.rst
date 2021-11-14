@@ -46,6 +46,10 @@ If you need to interpolate values from Python into the ``where`` parameter, use 
 
 Do not directly put values into the ``where`` string using Python string interpolation as this will leave you vulnerable to a `SQL injection <https://en.wikipedia.org/wiki/SQL_injection>`_ attack.
 
+Often you do not need to retrieve every column from the database. To limit the columns that are retrieved, use the ``columns`` parameter::
+
+    rows = db.select("employees", columns=["id", "salary"])
+
 ``Database.select`` supports several additional parameters such as ``order_by``, ``limit``, and ``offset``, which are described in the :doc:`API reference <api>`.
 
 To retrieve a single row, use ``Database.get``::

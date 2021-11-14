@@ -162,6 +162,7 @@ class Database:
         self,
         table: str,
         *,
+        columns: List[str] = [],
         where: str = "",
         values: Dict[str, Any] = {},
         limit: Optional[int] = None,
@@ -176,6 +177,8 @@ class Database:
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
+        :param columns: The columns of the table to return. By default, all columns are
+            returned.
         :param where: A 'where' clause to restrict the query, as a string. The initial
             ``WHERE`` keyword should be omitted. To interpolate Python values, put,
             e.g., ``:placeholder`` in the SQL and then pass ``{"placeholder": x}`` as
@@ -226,15 +229,22 @@ class Database:
         where_clause = f"WHERE {where}" if where else ""
 
         if get_related:
-            columns, joins = self._get_related_columns_and_joins(table, get_related)
+            selection, joins = self._get_related_columns_and_joins(
+                table, columns, get_related
+            )
             rows = self.sql(
-                f"SELECT {columns} FROM {quote(table)} {joins} {where_clause}"
+                f"SELECT {selection} FROM {quote(table)} {joins} {where_clause}"
                 + f" {order_clause} {limit_clause}",
                 values,
             )
         else:
+            if columns:
+                selection = ", ".join(map(quote, columns))
+            else:
+                selection = "*"
+
             rows = self.sql(
-                f"SELECT * FROM {quote(table)} {where_clause} {order_clause}"
+                f"SELECT {selection} FROM {quote(table)} {where_clause} {order_clause}"
                 + f" {limit_clause}",
                 values,
             )
@@ -245,6 +255,7 @@ class Database:
         self,
         table: str,
         *,
+        columns: List[str] = [],
         where: str = "",
         values: Dict[str, Any] = {},
         order_by: Optional[str] = None,
@@ -262,6 +273,7 @@ class Database:
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
+        :param columns: Same as for ``Database.select``.
         :param where: Same as for ``Database.select``.
         :param values: Same as for ``Database.select``.
         :param order_by: Same as for ``Database.select``.
@@ -270,6 +282,7 @@ class Database:
         """
         rows = self.select(
             table,
+            columns=columns,
             where=where,
             values=values,
             order_by=order_by,
@@ -280,7 +293,12 @@ class Database:
         return rows[0] if rows else None
 
     def get_by_pk(
-        self, table: str, pk: int, *, get_related: Union[List[str], bool] = []
+        self,
+        table: str,
+        pk: int,
+        *,
+        columns: List[str] = [],
+        get_related: Union[List[str], bool] = [],
     ) -> Optional[Row]:
         """
         Retrieve a single row from the database table by its primary key.
@@ -289,11 +307,13 @@ class Database:
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
         :param pk: The primary key of the row to return.
+        :param columns: Passed on to ``Database.get``.
         :param get_related: Passed on to ``Database.get``.
         """
         pk_column = f"{quote(table)}.rowid"
         return self.get(
             table,
+            columns=columns,
             where=f"{pk_column} = :pk",
             values={"pk": pk},
             get_related=get_related,
@@ -415,6 +435,7 @@ class Database:
         table: str,
         data: Row,
         *,
+        columns: List[str] = [],
         auto_timestamp_columns: Union[List[str], bool] = True,
         get_related: Union[List[str], bool] = [],
     ) -> Row:
@@ -433,7 +454,7 @@ class Database:
           omitted from ``data``.
         """
         pk = self.insert(table, data, auto_timestamp_columns=auto_timestamp_columns)
-        row = self.get_by_pk(table, pk, get_related=get_related)
+        row = self.get_by_pk(table, pk, columns=columns, get_related=get_related)
         assert row is not None
         return row
 
@@ -984,8 +1005,12 @@ class Database:
         self.sql("PRAGMA foreign_key_check")
 
     def _get_related_columns_and_joins(
-        self, table: str, get_related: Union[List[str], bool]
+        self,
+        table: str,
+        columns_to_select: List[str],
+        get_related: Union[List[str], bool],
     ) -> Tuple[str, str]:
+        # Normalize `get_related` to a set of column names.
         table_schema = self.schema[table]
         if isinstance(get_related, bool):
             if get_related is True:
@@ -1005,6 +1030,9 @@ class Database:
         columns_list = []
         joins_list = []
         for column in table_schema.columns:
+            if columns_to_select and column.name not in columns_to_select:
+                continue
+
             if column.name in get_related_set:
                 # Remove the column from the set so that we can check for any
                 # non-existent columns at the end.
