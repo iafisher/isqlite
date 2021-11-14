@@ -7,7 +7,8 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 
 ## Unreleased
-Nothing yet.
+### Fixed
+- `isqlite create` and `isqlite update` no longer crash when a value in a command-line argument contains an equals sign.
 
 
 ## [1.3.0] - 2021-11-14

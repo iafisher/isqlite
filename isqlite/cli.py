@@ -132,7 +132,7 @@ def _create(db_path, table, payload, *, auto_timestamp):
 
     payload_as_map = {}
     for key_value in payload:
-        key, value = key_value.split("=")
+        key, value = key_value.split("=", maxsplit=1)
         payload_as_map[key] = value
 
     if auto_timestamp:
@@ -806,7 +806,7 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp):
 
     payload_as_map = {}
     for key_value in payload:
-        key, value = key_value.split("=")
+        key, value = key_value.split("=", maxsplit=1)
         payload_as_map[key] = value
 
     if auto_timestamp:

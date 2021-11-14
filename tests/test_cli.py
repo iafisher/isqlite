@@ -35,7 +35,7 @@ class TemporaryFileTestCase(unittest.TestCase):
 
         if with_data:
             self.invoke(
-                cli.main_insert,
+                cli.main_create,
                 [
                     self.db_file_path,
                     "books",
@@ -46,10 +46,12 @@ class TemporaryFileTestCase(unittest.TestCase):
             )
 
     def invoke(self, cli_function, args, *, exit_code=0):
-        result = self.runner.invoke(cli_function, args)
+        result = self.runner.invoke(cli_function, args, catch_exceptions=False)
 
         if exit_code is not None:
-            self.assertEqual(result.exit_code, exit_code)
+            self.assertEqual(
+                result.exit_code, exit_code, msg=f"Command output: {result.output!r}"
+            )
 
         return result.output
 
@@ -204,7 +206,7 @@ class OtherCommandsTests(TemporaryFileTestCase):
         )
 
         self.invoke(
-            cli.main_insert,
+            cli.main_create,
             [self.db_file_path, "books", "title=Beowulf", "--no-auto-timestamp"],
         )
 
@@ -384,6 +386,62 @@ class OtherCommandsTests(TemporaryFileTestCase):
             title           author
             --------------  -----------
             Blood Meridian  C. McCarthy
+
+            1 row.
+            """
+            ),
+        )
+
+    def test_update_with_equals_sign_in_value(self):
+        self.create_table(with_data=True)
+
+        self.invoke(
+            cli.main_update,
+            [
+                self.db_file_path,
+                "books",
+                "1",
+                "author=Non = Sense",
+                "--no-auto-timestamp",
+            ],
+        )
+
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
+        self.assertEqual(
+            output,
+            S(
+                """
+            title           author
+            --------------  -----------
+            Blood Meridian  Non = Sense
+
+            1 row.
+            """
+            ),
+        )
+
+    def test_create_with_equals_sign_in_value(self):
+        self.create_table()
+
+        self.invoke(
+            cli.main_create,
+            [
+                self.db_file_path,
+                "books",
+                "--no-auto-timestamp",
+                "title=A=B",
+                "author=Anon",
+            ],
+        )
+
+        output = self.invoke(cli.main_select, [self.db_file_path, "books"])
+        self.assertEqual(
+            output,
+            S(
+                """
+            title    author
+            -------  --------
+            A=B      Anon
 
             1 row.
             """
