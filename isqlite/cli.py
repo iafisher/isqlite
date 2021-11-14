@@ -16,6 +16,10 @@ from tabulate import tabulate
 from . import Database, Schema, migrations
 
 # Help strings used in multiple places.
+HELP_AUTO_TIMESTAMP_CREATE = (
+    "Automatically populate `created_at` and `last_updated_at` columns with current "
+    + "time."
+)
 HELP_COLUMNS = "Only display these columns in the results."
 HELP_DESC = (
     "When combined with --order-by, order the results in descending rather than "
@@ -84,6 +88,63 @@ def main_count(db_path, table, *, where, distinct):
     """
     with Database(db_path) as db:
         print(db.count(table, where=where, distinct=distinct))
+
+
+@cli.command(name="create")
+@click.argument("db_path")
+@click.argument("table")
+@click.argument("payload", nargs=-1)
+@click.option(
+    "--auto-timestamp/--no-auto-timestamp",
+    default=True,
+    help=HELP_AUTO_TIMESTAMP_CREATE,
+)
+def main_create(db_path, table, payload, *, auto_timestamp=True):
+    """
+    Create a new row non-interactively.
+
+    PAYLOAD should be a list of space-separated key-value pairs, e.g.
+
+        isqlite create --db db.sqlite3 my_table a=1 b=2
+    """
+    _create(db_path, table, payload, auto_timestamp=auto_timestamp)
+
+
+@cli.command(name="insert")
+@click.argument("db_path")
+@click.argument("table")
+@click.argument("payload", nargs=-1)
+@click.option(
+    "--auto-timestamp/--no-auto-timestamp",
+    default=True,
+    help=HELP_AUTO_TIMESTAMP_CREATE,
+)
+def main_insert(db_path, table, payload, *, auto_timestamp=True):
+    """
+    Alias for 'create'.
+    """
+    _create(db_path, table, payload, auto_timestamp=auto_timestamp)
+
+
+def _create(db_path, table, payload, *, auto_timestamp):
+    if not payload:
+        report_error_and_exit("payload must not be empty")
+
+    payload_as_map = {}
+    for key_value in payload:
+        key, value = key_value.split("=")
+        payload_as_map[key] = value
+
+    if auto_timestamp:
+        auto_timestamp_columns = ["created_at", "last_updated_at"]
+    else:
+        auto_timestamp_columns = []
+
+    with Database(db_path) as db:
+        pk = db.insert(
+            table, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
+        )
+        print(f"Row {pk} created.")
 
 
 @cli.command(name="create-table")
@@ -308,44 +369,186 @@ def main_get(db_path, table, pk, *, plain_foreign_keys):
             prettyprint_row(row)
 
 
-@cli.command(name="insert")
+@cli.command(name="list")
 @click.argument("db_path")
 @click.argument("table")
-@click.argument("payload", nargs=-1)
+@click.option("-w", "--where", default="")
+@click.option("-s", "--search")
+@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
+@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
+@click.option("-p", "--page", default=1, help=HELP_PAGE)
+@click.option("--limit", default=None, help=HELP_LIMIT)
+@click.option("--offset", default=None, help=HELP_OFFSET)
+@click.option("--order-by", multiple=True, default=[], help=HELP_ORDER_BY)
+@click.option("--desc", is_flag=True, default=False, help=HELP_DESC)
 @click.option(
-    "--auto-timestamp/--no-auto-timestamp",
-    default=True,
-    help=(
-        "Automatically populate `created_at` and `last_updated_at` columns with "
-        + "current time."
-    ),
+    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
 )
-def main_insert(db_path, table, payload, *, auto_timestamp=True):
+def main_list(
+    db_path,
+    table,
+    *,
+    where,
+    search,
+    columns,
+    hide,
+    page,
+    limit,
+    offset,
+    order_by,
+    desc,
+    plain_foreign_keys,
+):
     """
-    Create a new row non-interactively.
-
-    PAYLOAD should be a list of space-separated key-value pairs, e.g.
-
-        isqlite insert --db db.sqlite3 my_table a=1 b=2
+    List the rows in the table, optionally filtered by a SQL clause.
     """
-    if not payload:
-        report_error_and_exit("payload must not be empty")
+    _select(
+        db_path,
+        table,
+        where=where,
+        search=search,
+        columns=columns,
+        hide=hide,
+        page=page,
+        limit=limit,
+        offset=offset,
+        order_by=order_by,
+        desc=desc,
+        plain_foreign_keys=plain_foreign_keys,
+    )
 
-    payload_as_map = {}
-    for key_value in payload:
-        key, value = key_value.split("=")
-        payload_as_map[key] = value
 
-    if auto_timestamp:
-        auto_timestamp_columns = ["created_at", "last_updated_at"]
-    else:
-        auto_timestamp_columns = []
+@cli.command(name="select")
+@click.argument("db_path")
+@click.argument("table")
+@click.option("-w", "--where", default="")
+@click.option("-s", "--search")
+@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
+@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
+@click.option("-p", "--page", default=1, help=HELP_PAGE)
+@click.option("--limit", default=None, help=HELP_LIMIT)
+@click.option("--offset", default=None, help=HELP_OFFSET)
+@click.option("--order-by", multiple=True, default=[], help=HELP_ORDER_BY)
+@click.option("--desc", is_flag=True, default=False, help=HELP_DESC)
+@click.option(
+    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
+)
+def main_select(
+    db_path,
+    table,
+    *,
+    where,
+    search,
+    columns,
+    hide,
+    page,
+    limit,
+    offset,
+    order_by,
+    desc,
+    plain_foreign_keys,
+):
+    """
+    Alias for 'list'.
+    """
+    _select(
+        db_path,
+        table,
+        where=where,
+        search=search,
+        columns=columns,
+        hide=hide,
+        page=page,
+        limit=limit,
+        offset=offset,
+        order_by=order_by,
+        desc=desc,
+        plain_foreign_keys=plain_foreign_keys,
+    )
 
-    with Database(db_path) as db:
-        pk = db.insert(
-            table, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
-        )
-        print(f"Row {pk} created.")
+
+def _select(
+    db_path,
+    table,
+    *,
+    where,
+    search,
+    columns,
+    hide,
+    page,
+    limit,
+    offset,
+    order_by,
+    desc,
+    plain_foreign_keys,
+):
+    """
+    Base implementation shared by `main_list`, `main_search`, and `main_select`.
+    """
+    with Database(db_path, readonly=True) as db:
+        try:
+            rows = db.select(
+                table,
+                where=where,
+                order_by=order_by,
+                limit=limit,
+                offset=offset,
+                descending=desc if order_by else None,
+                get_related=not plain_foreign_keys,
+            )
+        except sqlite3.OperationalError:
+            # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
+            # errors if the user-supplied WHERE clause has unqualified column names. So
+            # we simply retry on error with `get_related=False`.
+            rows = db.select(
+                table,
+                where=where,
+                order_by=order_by,
+                limit=limit,
+                offset=offset,
+                descending=desc if order_by else None,
+                get_related=False,
+            )
+
+        if not plain_foreign_keys:
+            for row in rows:
+                for key, value in row.items():
+                    if isinstance(value, collections.OrderedDict):
+                        row[key] = get_column_as_string(value)
+
+        if search:
+            search = search.lower()
+            filtered_rows = []
+            for row in rows:
+                yes = False
+                for value in row.values():
+                    if isinstance(value, str) and search in value.lower():
+                        yes = True
+                    elif isinstance(value, collections.OrderedDict):
+                        for subvalue in value.values():
+                            if isinstance(subvalue, str) and search in subvalue.lower():
+                                yes = True
+                                break
+
+                    if yes:
+                        break
+
+                if yes:
+                    filtered_rows.append(row)
+            rows = filtered_rows
+
+        if not rows:
+            if search:
+                print(
+                    f"No rows found in table {table!r} "
+                    + f"matching search query {search!r}."
+                )
+            elif where:
+                print(f"No rows found in table {table!r} with constraint {where!r}.")
+            else:
+                print(f"No row founds in table {table!r}.")
+        else:
+            prettyprint_rows(rows, columns=columns, hide=hide, page=page)
 
 
 @cli.command(name="migrate")
@@ -528,9 +731,9 @@ def main_search(
     plain_foreign_keys,
 ):
     """
-    Shorthand for `select <table> -s <query>`
+    Alias for 'list <table> -s <query>'.
     """
-    base_select(
+    _select(
         db_path,
         table,
         where=where,
@@ -544,139 +747,6 @@ def main_search(
         desc=desc,
         plain_foreign_keys=plain_foreign_keys,
     )
-
-
-@cli.command(name="select")
-@click.argument("db_path")
-@click.argument("table")
-@click.option("-w", "--where", default="")
-@click.option("-s", "--search")
-@click.option("--columns", multiple=True, default=[], help=HELP_COLUMNS)
-@click.option("--hide", multiple=True, default=[], help=HELP_HIDE)
-@click.option("-p", "--page", default=1, help=HELP_PAGE)
-@click.option("--limit", default=None, help=HELP_LIMIT)
-@click.option("--offset", default=None, help=HELP_OFFSET)
-@click.option("--order-by", multiple=True, default=[], help=HELP_ORDER_BY)
-@click.option("--desc", is_flag=True, default=False, help=HELP_DESC)
-@click.option(
-    "--plain-foreign-keys", is_flag=True, default=False, help=HELP_PLAIN_FOREIGN_KEYS
-)
-def main_select(
-    db_path,
-    table,
-    *,
-    where,
-    search,
-    columns,
-    hide,
-    page,
-    limit,
-    offset,
-    order_by,
-    desc,
-    plain_foreign_keys,
-):
-    """
-    List the rows in the table, optionally filtered by a SQL clause.
-    """
-    base_select(
-        db_path,
-        table,
-        where=where,
-        search=search,
-        columns=columns,
-        hide=hide,
-        page=page,
-        limit=limit,
-        offset=offset,
-        order_by=order_by,
-        desc=desc,
-        plain_foreign_keys=plain_foreign_keys,
-    )
-
-
-def base_select(
-    db_path,
-    table,
-    *,
-    where,
-    search,
-    columns,
-    hide,
-    page,
-    limit,
-    offset,
-    order_by,
-    desc,
-    plain_foreign_keys,
-):
-    """
-    Base implementation shared by `main_search` and `main_select`.
-    """
-    with Database(db_path, readonly=True) as db:
-        try:
-            rows = db.select(
-                table,
-                where=where,
-                order_by=order_by,
-                limit=limit,
-                offset=offset,
-                descending=desc if order_by else None,
-                get_related=not plain_foreign_keys,
-            )
-        except sqlite3.OperationalError:
-            # Because `get_related` uses SQL joins, it may cause 'ambiguous column'
-            # errors if the user-supplied WHERE clause has unqualified column names. So
-            # we simply retry on error with `get_related=False`.
-            rows = db.select(
-                table,
-                where=where,
-                order_by=order_by,
-                limit=limit,
-                offset=offset,
-                descending=desc if order_by else None,
-                get_related=False,
-            )
-
-        if not plain_foreign_keys:
-            for row in rows:
-                for key, value in row.items():
-                    if isinstance(value, collections.OrderedDict):
-                        row[key] = get_column_as_string(value)
-
-        if search:
-            search = search.lower()
-            filtered_rows = []
-            for row in rows:
-                yes = False
-                for value in row.values():
-                    if isinstance(value, str) and search in value.lower():
-                        yes = True
-                    elif isinstance(value, collections.OrderedDict):
-                        for subvalue in value.values():
-                            if isinstance(subvalue, str) and search in subvalue.lower():
-                                yes = True
-                                break
-
-                    if yes:
-                        break
-
-                if yes:
-                    filtered_rows.append(row)
-            rows = filtered_rows
-
-        if not rows:
-            if search:
-                print(
-                    f"No rows found in table {table!r} "
-                    + f"matching search query {search!r}."
-                )
-            elif where:
-                print(f"No rows found in table {table!r} with constraint {where!r}.")
-            else:
-                print(f"No row founds in table {table!r}.")
-        else:
-            prettyprint_rows(rows, columns=columns, hide=hide, page=page)
 
 
 @cli.command(name="sql")
