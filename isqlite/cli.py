@@ -767,7 +767,16 @@ def main_sql(db_path, query, *, columns, hide, page, write):
     """
     readonly = not write
     with Database(db_path, readonly=readonly) as db:
-        rows = db.sql(query)
+        try:
+            rows = db.sql(query)
+        except sqlite3.OperationalError as e:
+            if e.args and e.args[0] == "attempt to write a readonly database":
+                report_error_and_exit(
+                    "cannot write to read-only database. Re-run with the --write flag."
+                )
+
+            raise e
+
         if rows:
             prettyprint_rows(rows, columns=columns, hide=hide, page=page)
         else:

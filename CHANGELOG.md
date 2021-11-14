@@ -14,10 +14,11 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 ### Changed
 - `Database.update` now returns the count of rows updated, and `Database.update_by_pk` returns a boolean indicating whether or not the row was updated.
-- The `isqlite migrate` and `isqlite diff` commands now give better error messages for invalid schema files.
 
 ### Fixed
 - Thanks to upstream fixes in the sqliteparser library, isqlite can now handle some SQL syntax it would previously choke on, including `VARCHAR(...)` column types, multi-word column types, and `NULL` column constraints.
+- The `isqlite migrate` and `isqlite diff` commands now give better error messages for invalid schema files.
+- The `isqlite sql` command now gives a more informative error message when attempting to modify the database without the `--write` flag. (#62)
 
 
 ## [1.2.0] - 2021-10-19
