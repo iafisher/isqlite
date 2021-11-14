@@ -358,15 +358,15 @@ def main_get(db_path, table, pk, *, plain_foreign_keys):
     """
     with Database(db_path, readonly=True) as db:
         row = db.get_by_pk(table, pk, get_related=not plain_foreign_keys)
+        if row is None:
+            report_error_and_exit(f"row {pk} not found in table {table!r}.")
+
         if not plain_foreign_keys:
             for key, value in row.items():
                 if isinstance(value, collections.OrderedDict):
                     row[key] = get_column_as_string(value)
 
-        if row is None:
-            print(f"Row {pk} not found in table {table!r}.")
-        else:
-            prettyprint_row(row)
+        prettyprint_row(row)
 
 
 @cli.command(name="list")
