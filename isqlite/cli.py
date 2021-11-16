@@ -673,6 +673,9 @@ def main_schema(db_path, table, *, as_python):
                 where="type = 'table' AND name = :table",
                 values={"table": table},
             )
+            if row is None:
+                report_error_and_exit(f"table {table!r} not found.")
+
             sql = row["sql"]
 
             if as_python:

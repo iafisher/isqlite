@@ -10,6 +10,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 ### Fixed
 - `isqlite create` and `isqlite update` no longer crash when a value in a command-line argument contains an equals sign.
 - `isqlite get` now prints a helpful error message instead of crashing when the row does not exist.
+- `isqlite schema <table>` now prints a helpful error message when the table does not exist.
 
 
 ## [1.3.0] - 2021-11-14
