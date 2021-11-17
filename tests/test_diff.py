@@ -196,3 +196,42 @@ class DiffTests(unittest.TestCase):
                 CreateTableMigration("x", ['"bar"  TEXT']),
             ],
         )
+
+    @unittest.skip("https://github.com/iafisher/isqlite/issues/67")
+    def test_diff_identical_columns_added(self):
+        # Regression test for https://github.com/iafisher/isqlite/issues/67
+        schema_before = Schema(
+            [
+                Table(
+                    "t",
+                    [
+                        columns.decimal("a", required=False),
+                        columns.decimal("b", required=False),
+                    ],
+                )
+            ]
+        )
+        schema_after = Schema(
+            [
+                Table(
+                    "t",
+                    [
+                        columns.decimal("a", required=False),
+                        columns.decimal("c", required=False),
+                        columns.decimal("d", required=False),
+                        columns.decimal("b", required=False),
+                    ],
+                )
+            ]
+        )
+
+        diff = diff_schemas(schema_before, schema_after)
+
+        self.assertEqual(
+            diff,
+            [
+                AddColumnMigration("t", '"c"  DECIMAL'),
+                AddColumnMigration("t", '"d"  DECIMAL'),
+                ReorderColumnsMigration("t", ["a", "c", "d", "b"]),
+            ],
+        )
