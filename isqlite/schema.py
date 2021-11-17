@@ -157,8 +157,14 @@ def diff_tables(old_table: Table, new_table: Table, *, detect_renaming=True) -> 
         old_index = old_columns_to_index_map.get(column.name)
         if old_index is None:
             if (
+                # Renaming detection must be on...
                 detect_renaming
+                # ...the index must be valid in the old table...
                 and new_index < len(old_table.columns)
+                # ...the column at the index in the old table must be gone...
+                and old_table.columns[new_index].name not in new_table
+                # ...and the old and new columns at that index must otherwise
+                # correspond.
                 and is_renamed_column(column, old_table.columns[new_index])
             ):
                 old_column_name = old_table.columns[new_index].name

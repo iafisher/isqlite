@@ -197,7 +197,6 @@ class DiffTests(unittest.TestCase):
             ],
         )
 
-    @unittest.skip("https://github.com/iafisher/isqlite/issues/67")
     def test_diff_identical_columns_added(self):
         # Regression test for https://github.com/iafisher/isqlite/issues/67
         schema_before = Schema(
