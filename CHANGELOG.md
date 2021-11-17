@@ -3,6 +3,16 @@ All notable changes to isqlite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Backwards compatibility is maintained under the restrictions of Semantic Versioning with regards to the following interfaces:
+
+- All Python interfaces documented in the [API reference](https://isqlite.readthedocs.io/en/stable/api.html).
+- The command-line interface of the `isqlite` tool.
+
+Backwards compatibility is NOT guaranteed to be maintained with regards to:
+
+- Any Python interface not documented in the API reference.
+- The output of the `isqlite` command-line tool.
+
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/isqlite/issues).
 
 
