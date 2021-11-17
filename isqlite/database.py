@@ -327,6 +327,10 @@ class Database:
         Not to be confused with ``insert_and_get``, which unconditionally inserts a row
         and returns it.
 
+        The returned ``collections.OrderedDict`` object will have an additional
+        ``inserted`` attribute that indicates whether or not a new row was inserted into
+        the database.
+
         :param table: The database table to query. WARNING: This value is directly
             interpolated into the SQL statement. Do not pass untrusted input, to avoid
             SQL injection attacks.
@@ -344,9 +348,12 @@ class Database:
         query = " AND ".join(f"{key} = :{key}" for key in data)
         row = self.get(table, where=query, values=data)
         if row is None:
-            return self.insert_and_get(table, data, **kwargs)
+            row = self.insert_and_get(table, data, **kwargs)
+            row.inserted = True  # type: ignore
         else:
-            return row
+            row.inserted = False  # type: ignore
+
+        return row
 
     def count(
         self,

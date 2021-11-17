@@ -20,6 +20,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 ### Added
 - `isqlite icreate` and `isqlite iupdate` commands to interactively create and update rows.
 - A `detect_renaming` parameter has been added to `Database.diff` and `Database.migrate`, and a `--no-rename` flag has been added to `isqlite diff` and `isqlite migrate`, allowing isqlite's renaming detection to be disabled in case it gives erroneous results.
+- The return value of `Database.get_or_insert` now has an `inserted` attribute to indicate whether or not a new row was inserted into the database. (#60)
 
 ### Changed
 - `isqlite sql` no longer prints anything if the SQL query returned no rows. (#66)

@@ -244,6 +244,7 @@ class DatabaseTests(unittest.TestCase):
         student = self.db.get_by_pk("students", 1)
         new_student = self.db.get_or_insert("students", student)
         self.assertEqual(student["id"], new_student["id"])
+        self.assertFalse(new_student.inserted)
 
     def test_get_or_insert_with_new_row(self):
         n = self.db.count("students")
@@ -259,6 +260,8 @@ class DatabaseTests(unittest.TestCase):
         )
 
         self.assertEqual(student["first_name"], "John")
+        self.assertTrue(student.inserted)
+
         self.assertEqual(self.db.count("students"), n + 1)
 
     def test_update_with_pk(self):
