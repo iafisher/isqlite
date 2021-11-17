@@ -20,6 +20,9 @@ HELP_AUTO_TIMESTAMP_CREATE = (
     "Automatically populate `created_at` and `last_updated_at` columns with current "
     + "time."
 )
+HELP_AUTO_TIMESTAMP_UPDATE = (
+    "Automatically populate `last_updated_at` column with current time."
+)
 HELP_COLUMNS = "Only display these columns in the results."
 HELP_DESC = (
     "When combined with --order-by, order the results in descending rather than "
@@ -813,7 +816,7 @@ def main_sql(db_path, query, *, columns, hide, page, write):
 @click.option(
     "--auto-timestamp/--no-auto-timestamp",
     default=True,
-    help="Automatically populate `last_updated_at` column with current time.",
+    help=HELP_AUTO_TIMESTAMP_UPDATE,
 )
 def main_update(db_path, table, pk, payload, *, auto_timestamp):
     """
@@ -832,7 +835,7 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp):
         payload_as_map[key] = value
 
     if auto_timestamp:
-        auto_timestamp_columns = ["created_at", "last_updated_at"]
+        auto_timestamp_columns = ["last_updated_at"]
     else:
         auto_timestamp_columns = []
 

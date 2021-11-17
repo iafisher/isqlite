@@ -25,6 +25,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 ### Fixed
 - Previously, under some circumstances `Database.diff` would identify a column as renamed (e.g., `a --> b`) even though the old column (`a`) was still in the table. This has been fixed. (#67)
+- `isqlite update` with `--auto-timestamp` turned on (the default) no longer updates the `created_at` timestamp field. (#68)
 - `isqlite create` and `isqlite update` no longer crash when a value in a command-line argument contains an equals sign.
 - `isqlite get` now prints a helpful error message instead of crashing when the row does not exist.
 - `isqlite schema <table>` now prints a helpful error message when the table does not exist.
