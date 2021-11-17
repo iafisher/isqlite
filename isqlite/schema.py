@@ -112,7 +112,9 @@ class Schema:
         return list(self._tables.keys())
 
 
-def diff_schemas(old_schema: Schema, new_schema: Schema) -> Diff:
+def diff_schemas(
+    old_schema: Schema, new_schema: Schema, *, detect_renaming=True
+) -> Diff:
     tables_in_old_schema = set(old_schema.table_names)
     tables_in_new_schema = set(new_schema.table_names)
 
@@ -136,12 +138,12 @@ def diff_schemas(old_schema: Schema, new_schema: Schema) -> Diff:
     for table_name in tables_to_alter:
         old_table = old_schema[table_name]
         new_table = new_schema[table_name]
-        diff.extend(diff_tables(old_table, new_table))
+        diff.extend(diff_tables(old_table, new_table, detect_renaming=detect_renaming))
 
     return diff
 
 
-def diff_tables(old_table: Table, new_table: Table) -> Diff:
+def diff_tables(old_table: Table, new_table: Table, *, detect_renaming=True) -> Diff:
     # TODO(2021-10-17): Clean up this implementation, similar to `diff_schemas`.
     table_name = new_table.name
     diff: Diff = []
@@ -154,8 +156,10 @@ def diff_tables(old_table: Table, new_table: Table) -> Diff:
     for new_index, column in enumerate(new_table.columns):
         old_index = old_columns_to_index_map.get(column.name)
         if old_index is None:
-            if new_index < len(old_table.columns) and is_renamed_column(
-                column, old_table.columns[new_index]
+            if (
+                detect_renaming
+                and new_index < len(old_table.columns)
+                and is_renamed_column(column, old_table.columns[new_index])
             ):
                 old_column_name = old_table.columns[new_index].name
                 renamed_columns.add(old_column_name)

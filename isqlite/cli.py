@@ -28,6 +28,7 @@ HELP_DESC = (
 HELP_HIDE = "Hide these columns in the results."
 HELP_LIMIT = "Limit the number of rows returned from the database."
 HELP_NO_CONFIRM = "Do not prompt for confirmation."
+HELP_NO_RENAME = "Don't rename columns, only add or remove them."
 HELP_OFFSET = "Offset a query with --limit."
 HELP_ORDER_BY = "Order the results by one or more columns."
 HELP_PAGE = (
@@ -230,6 +231,12 @@ def main_delete(db_path, table, pk, *, where, no_confirm):
 @click.argument("db_path")
 @click.argument("schema_path")
 @click.option("--table", default=None)
+@click.option(
+    "--no-rename",
+    is_flag=True,
+    default=False,
+    help=HELP_NO_RENAME,
+)
 def main_diff(db_path, schema_path, table):
     """
     Diff the database against the Python schema.
@@ -239,8 +246,8 @@ def main_diff(db_path, schema_path, table):
         _diff(db, schema, table)
 
 
-def _diff(db, schema, table):
-    diff = db.diff(schema, table=table)
+def _diff(db, schema, table, *, detect_renaming=True):
+    diff = db.diff(schema, table=table, detect_renaming=detect_renaming)
     if not diff:
         print("Nothing to migrate: database matches schema.")
         return None
@@ -568,18 +575,26 @@ def _select(
     help="Don't create a backup of the database.",
 )
 @click.option(
+    "--no-rename",
+    is_flag=True,
+    default=False,
+    help=HELP_NO_RENAME,
+)
+@click.option(
     "--debug",
     is_flag=True,
     default=False,
     help="Run the database in debug mode.",
 )
-def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
+def main_migrate(
+    db_path, schema_path, table, *, no_confirm, no_backup, no_rename, debug
+):
     """
     Migrate the database to match the Python schema.
     """
     schema = get_schema_from_path(schema_path)
     with Database(db_path, transaction=False, debug=debug) as db:
-        diff, data_dropped = _diff(db, schema, table)
+        diff, data_dropped = _diff(db, schema, table, detect_renaming=not no_rename)
         if diff is None:
             return
 
@@ -610,8 +625,10 @@ def main_migrate(db_path, schema_path, table, *, no_confirm, no_backup, debug):
             sys.exit(2)
 
         if no_backup:
+            print()
             print("Migration completed successfully.")
         else:
+            print()
             print(
                 "Migration completed successfully. "
                 + f"Backup of database before migration saved at {backup_name}."

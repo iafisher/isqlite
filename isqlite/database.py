@@ -810,13 +810,16 @@ class Database:
         )
         self.refresh_schema()
 
-    def diff(self, schema: Schema, *, table="") -> Diff:
+    def diff(self, schema: Schema, *, table="", detect_renaming=True) -> Diff:
         """
         Return a list of differences between the Python schema and the actual database
         schema.
 
         :param schema: The Python schema to compare against the database.
         :param table: The table to diff. If empty, the entire database will be diffed.
+        :param detect_renaming: If true, the differ will attempt to detect renamed
+            columns. Sometimes the differ does not detect renames correctly, so this
+            option is available to disable renaming detection.
         """
         self.refresh_schema()
         if table:
@@ -826,9 +829,9 @@ class Database:
             except KeyError:
                 raise TableDoesNotExistError(table)
 
-            return diff_tables(old_schema, new_schema)
+            return diff_tables(old_schema, new_schema, detect_renaming=detect_renaming)
         else:
-            return diff_schemas(self.schema, schema)
+            return diff_schemas(self.schema, schema, detect_renaming=detect_renaming)
 
     def apply_diff(self, diff: Diff) -> None:
         """
@@ -875,7 +878,7 @@ class Database:
 
             self.refresh_schema()
 
-    def migrate(self, schema: Schema) -> None:
+    def migrate(self, schema: Schema, *, detect_renaming=True) -> None:
         """
         Migrate the database to match the Python schema.
 
@@ -885,8 +888,9 @@ class Database:
         The entire operation will occur in a transaction.
 
         :param schema: The Python schema to compare against the database.
+        :param detect_renaming: Passed on to ``Database.diff``.
         """
-        self.apply_diff(self.diff(schema))
+        self.apply_diff(self.diff(schema, detect_renaming=detect_renaming))
 
     def refresh_schema(self) -> None:
         """

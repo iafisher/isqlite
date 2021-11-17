@@ -32,6 +32,8 @@ isqlite is able to detect renamed columns, as long as these two conditions are m
 
 Therefore, renaming a column must be done separately from altering the column or adding, dropping, or reordering other columns in the same table.
 
+isqlite sometimes interprets a schema change as a renaming even when it was not intended. Renaming detection can be disabled with the ``detect_renaming`` parameter to ``Database.diff`` and ``Database.migrate`` in the Python API, and the ``--no-rename`` flag to ``isqlite diff`` and ``isqlite migrate`` on the command line.
+
 
 Renaming tables
 ^^^^^^^^^^^^^^^
