@@ -18,6 +18,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 ## Unreleased
 ### Added
+- `isqlite icreate` and `isqlite iupdate` commands to interactively create and update rows.
 - A `detect_renaming` parameter has been added to `Database.diff` and `Database.migrate`, and a `--no-rename` flag has been added to `isqlite diff` and `isqlite migrate`, allowing isqlite's renaming detection to be disabled in case it gives erroneous results.
 
 ### Changed

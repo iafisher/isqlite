@@ -379,6 +379,126 @@ def main_get(db_path, table, pk, *, plain_foreign_keys):
         prettyprint_row(row)
 
 
+@cli.command(name="icreate")
+@click.argument("db_path")
+@click.argument("table")
+@click.option(
+    "--auto-timestamp/--no-auto-timestamp",
+    default=True,
+    help=HELP_AUTO_TIMESTAMP_CREATE,
+)
+def main_icreate(db_path, table, *, auto_timestamp=True):
+    """
+    Interactively insert a new row into the table.
+    """
+    if auto_timestamp:
+        auto_timestamp_columns = ["created_at", "last_updated_at"]
+    else:
+        auto_timestamp_columns = []
+
+    with Database(db_path) as db:
+        payload = _prompt_for_table(db, table, None, auto_timestamp=auto_timestamp)
+        pk = db.insert(table, payload, auto_timestamp_columns=auto_timestamp_columns)
+        print(f"Row {pk} created.")
+
+
+@cli.command(name="iupdate")
+@click.argument("db_path")
+@click.argument("table")
+@click.argument("pk", type=int)
+@click.option(
+    "--auto-timestamp/--no-auto-timestamp",
+    default=True,
+    help=HELP_AUTO_TIMESTAMP_UPDATE,
+)
+def main_iupdate(db_path, table, pk, *, auto_timestamp=True):
+    """
+    Interactively update a row in the table.
+    """
+    if auto_timestamp:
+        auto_timestamp_columns = ["last_updated_at"]
+    else:
+        auto_timestamp_columns = []
+
+    with Database(db_path) as db:
+        row = db.get_by_pk(table, pk)
+        if row is None:
+            report_error_and_exit(f"row {pk} not found in table {table!r}.")
+
+        print(
+            "Enter a blank line to leave a row unchanged. Enter NULL to set a row blank."
+        )
+        print()
+
+        payload = _prompt_for_table(db, table, row, auto_timestamp=auto_timestamp)
+
+        db.update_by_pk(
+            table, pk, payload, auto_timestamp_columns=auto_timestamp_columns
+        )
+        print(f"Row {row['id']} updated.")
+
+
+def _prompt_for_table(db, table, row, *, auto_timestamp):
+    updating = bool(row is not None)
+
+    payload = {}
+    for column in db.schema[table].columns:
+        # Skip primary key columns as they will be filled in automatically.
+        if any(
+            isinstance(constraint, sqliteparser.ast.PrimaryKeyConstraint)
+            for constraint in column.definition.constraints
+        ):
+            continue
+
+        # If auto timestamp support is enabled, skip `created_at` and
+        # `last_updated_at` columns.
+        if auto_timestamp and column.name in ("created_at", "last_updated_at"):
+            continue
+
+        required = any(
+            isinstance(constraint, sqliteparser.ast.NotNullConstraint)
+            for constraint in column.definition.constraints
+        )
+
+        prompt_builder = [column.name, " (", column.definition.type]
+        if required:
+            prompt_builder.append(", required")
+
+        if not updating and column.definition.default:
+            prompt_builder.append(", default ")
+            if isinstance(column.definition.default, sqliteparser.ast.String):
+                prompt_builder.append(repr(column.definition.default.value))
+            elif isinstance(column.definition.default, sqliteparser.ast.Integer):
+                prompt_builder.append(repr(column.definition.default.value))
+            else:
+                prompt_builder.append(repr(column.definition.default.value))
+
+        prompt_builder.append(")")
+        if row is not None:
+            prompt_builder.append(" - currently ")
+            prompt_builder.append(repr(row[column.name]))
+        prompt_builder.append("? ")
+
+        value = input("".join(prompt_builder)).strip()
+
+        if not value:
+            if updating:
+                # If updating an existing row, skip empty values.
+                continue
+            else:
+                # If creating a new row, set the column to NULL if it is not a TEXT
+                # column or leave it as the empty string otherwise.
+                if column.definition.type != "TEXT":
+                    value = None
+
+        if value == "NULL":
+            value = None if column.definition.type != "TEXT" else ""
+
+        payload[column.name] = value
+
+    return payload
+
+
 @cli.command(name="list")
 @click.argument("db_path")
 @click.argument("table")

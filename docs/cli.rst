@@ -82,6 +82,26 @@ Usage::
 Unlike ``Database.get``, the ``get`` subcommand only supports fetching by primary key.
 
 
+``icreate``
+-----------
+
+Usage::
+
+    isqlite icreate <database> <table>
+
+The ``icreate`` subcommand will interactively prompt for each column in the table.
+
+
+``iupdate``
+-----------
+
+Usage::
+
+    isqlite iupdate <database> <table> <pk>
+
+The ``iupdate`` subcommand will interactively prompt for each column in the table, displaying the current value of the column if it is already set.
+
+
 ``list``
 ----------
 
