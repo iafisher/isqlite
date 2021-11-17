@@ -799,8 +799,10 @@ def main_sql(db_path, query, *, columns, hide, page, write):
 
         if rows:
             prettyprint_rows(rows, columns=columns, hide=hide, page=page)
-        else:
-            print("No rows found.")
+
+        # Don't print a message if there are no rows, because some SQL queries (e.g.,
+        # UPDATE) are not expected to return any rows, and printing a message can be
+        # confusing.
 
 
 @cli.command(name="update")

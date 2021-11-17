@@ -10,6 +10,9 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 ### Added
 - A `detect_renaming` parameter has been added to `Database.diff` and `Database.migrate`, and a `--no-rename` flag has been added to `isqlite diff` and `isqlite migrate`, allowing isqlite's renaming detection to be disabled in case it gives erroneous results.
 
+### Changed
+- `isqlite sql` no longer prints anything if the SQL query returned no rows. (#66)
+
 ### Fixed
 - Previously, under some circumstances `Database.diff` would identify a column as renamed (e.g., `a --> b`) even though the old column (`a`) was still in the table. This has been fixed. (#67)
 - `isqlite create` and `isqlite update` no longer crash when a value in a command-line argument contains an equals sign.
