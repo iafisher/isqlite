@@ -945,6 +945,8 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp):
     PAYLOAD should be a list of space-separated key-value pairs, e.g.
 
         isqlite update --db db.sqlite3 my_table 123 a=1 b=2
+
+    To set a column null, use the special NULL value.
     """
     if not payload:
         report_error_and_exit("payload must not be empty")
@@ -952,6 +954,10 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp):
     payload_as_map = {}
     for key_value in payload:
         key, value = key_value.split("=", maxsplit=1)
+
+        if value == "NULL":
+            value = None
+
         payload_as_map[key] = value
 
     if auto_timestamp:

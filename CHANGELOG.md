@@ -28,6 +28,7 @@ Nothing yet.
 
 ### Changed
 - `isqlite sql` no longer prints anything if the SQL query returned no rows. (#66)
+- `isqlite update` now treats `NULL` as a special value, in line with `isqlite iupdate`.
 
 ### Fixed
 - Previously, under some circumstances `Database.diff` would identify a column as renamed (e.g., `a --> b`) even though the old column (`a`) was still in the table. This has been fixed. (#67)
