@@ -19,6 +19,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 ## Unreleased
 ### Changed
 - `isqlite update` now treats `NULL` as a special value, in line with `isqlite iupdate`.
+- `isqlite delete` now displays the string values of foreign keys when printing a row prior to deletion.
 
 
 ## [1.4.0] - 2021-11-17
