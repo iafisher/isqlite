@@ -477,14 +477,7 @@ def _prompt_for_table(db, table, row, *, auto_timestamp):
         value = input("".join(prompt_builder)).strip()
 
         if not value:
-            if updating:
-                # If updating an existing row, skip empty values.
-                continue
-            else:
-                # If creating a new row, set the column to NULL if it is not a TEXT
-                # column or leave it as the empty string otherwise.
-                if column.definition.type != "TEXT":
-                    value = None
+            continue
 
         if value == "NULL":
             value = None if column.definition.type != "TEXT" else ""
