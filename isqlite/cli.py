@@ -954,10 +954,13 @@ def main_update(db_path, table, pk, payload, *, auto_timestamp):
         auto_timestamp_columns = []
 
     with Database(db_path) as db:
-        db.update_by_pk(
+        updated = db.update_by_pk(
             table, pk, payload_as_map, auto_timestamp_columns=auto_timestamp_columns
         )
-        print(f"Row {pk} updated.")
+        if updated:
+            print(f"Row {pk} updated.")
+        else:
+            report_error_and_exit(f"row {pk} not found in table {table!r}.")
 
 
 def prettyprint_rows(rows, *, columns=[], hide=[], page=1):
