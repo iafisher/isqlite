@@ -20,7 +20,7 @@ setup(
     packages=find_packages(exclude=["tests"]),
     install_requires=[
         "click >= 8.0.0",
-        "sqliteparser >= 0.5.3",
+        "sqliteparser >= 0.5.4",
         "tabulate >= 0.8.9",
     ],
     project_urls={"Source": "https://github.com/iafisher/isqlite"},
