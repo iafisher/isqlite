@@ -24,6 +24,7 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 ### Fixed
 - In `isqlite icreate`, empty values are ignored instead of being inserted as NULLs or empty strings. This is useful when the column definition specifies a default value.
 - `isqlite update` now reports an error when the row with the given primary key is not found.
+- `Database.select` now accepts a tuple for the `order_by` parameter to sort by multiple columns. (#71)
 
 
 ## [1.4.0] - 2021-11-17

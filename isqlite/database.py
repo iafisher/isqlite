@@ -167,7 +167,7 @@ class Database:
         values: Dict[str, Any] = {},
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        order_by: Optional[str] = None,
+        order_by: Optional[Union[Tuple[str], str]] = None,
         descending: Optional[bool] = None,
         get_related: Union[List[str], bool] = [],
     ) -> Rows:
@@ -190,7 +190,7 @@ class Database:
             used in conjunction with ``limit`` for pagination.
         :param order_by: If not None, order the results by this column. Order is
             ascending (smallest values first) by default; for descending order, pass
-            ``descending=True``.
+            ``descending=True``. To order by multiple columns, pass in a tuple.
         :param descending: If true, return results in descending order instead of
             ascending.
         :param get_related: A list of foreign-key columns of the table to be retrieved
@@ -200,10 +200,10 @@ class Database:
         """
         if order_by:
             if isinstance(order_by, (tuple, list)):
-                order_by = ", ".join(order_by)
+                order_by = ", ".join(map(quote, order_by))
 
             direction = "DESC" if descending is True else "ASC"
-            order_clause = f"ORDER BY {quote(order_by)} {direction}"
+            order_clause = f"ORDER BY {order_by} {direction}"
         else:
             if descending is not None:
                 raise ISqliteApiError(
@@ -258,7 +258,7 @@ class Database:
         columns: List[str] = [],
         where: str = "",
         values: Dict[str, Any] = {},
-        order_by: Optional[str] = None,
+        order_by: Optional[Union[Tuple[str], str]] = None,
         descending: Optional[bool] = None,
         get_related: Union[List[str], bool] = [],
     ) -> Optional[Row]:

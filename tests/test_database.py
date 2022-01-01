@@ -402,6 +402,22 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(list(courses[0].keys()), ["course_number", "department"])
         self.assertEqual(list(courses[1].keys()), ["course_number", "department"])
 
+    def test_select_with_order_by(self):
+        courses = self.db.select("courses", order_by="course_number")
+        self.assertEqual(len(courses), 2)
+        self.assertEqual(courses[0]["course_number"], 101)
+        self.assertEqual(courses[1]["course_number"], 399)
+
+    def test_select_with_multiple_order_by(self):
+        profs = self.db.select("professors", order_by=("retired", "first_name"))
+        self.assertEqual(len(profs), 3)
+        self.assertEqual(profs[0]["first_name"], "Donald")
+        self.assertEqual(profs[0]["last_name"], "Knuth")
+        self.assertEqual(profs[1]["first_name"], "Larry")
+        self.assertEqual(profs[1]["last_name"], "Logician")
+        self.assertEqual(profs[2]["first_name"], "Noam")
+        self.assertEqual(profs[2]["last_name"], "Chomsky")
+
     def test_add_column(self):
         self.db.add_column("professors", "year_of_hire INTEGER")
 
