@@ -99,7 +99,7 @@ class Database:
             file path.
         :param cached_statements: Passed on to ``sqlite3.connect``.
         :param enforce_foreign_keys: If true, foreign-key constraint enforcement will be
-            turned out with `PRAGMA foreign_keys = 1`.
+            turned out with ``PRAGMA foreign_keys = 1``.
         :param insert_auto_timestamp_columns: A default value for
             ``auto_timestamp_columns`` in ``insert`` and ``insert_many``. Usually set to
             ``["created_at", "last_updated_at"]`` in conjunction with a schema defined
