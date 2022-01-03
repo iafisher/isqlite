@@ -17,6 +17,9 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 
 ## Unreleased
+### Added
+- The `Database` and `AutoTable` constructors now accept a `use_epoch_timestamps` parameter to store auto timestamps as seconds since the Unix epoch instead of ISO 8601 datetime strings. (#69)
+
 ### Changed
 - `isqlite update` now treats `NULL` as a special value, in line with `isqlite iupdate`.
 - `isqlite delete` now displays the string values of foreign keys when printing a row prior to deletion.

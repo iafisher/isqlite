@@ -16,7 +16,8 @@ from .exceptions import (
 )
 from .schema import Diff, Schema, diff_schemas, diff_tables, rename_column
 
-CURRENT_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
+CURRENT_ISO_8601_TIMESTAMP_SQL = "STRFTIME('%Y-%m-%d %H:%M:%f', 'now')"
+CURRENT_EPOCH_TIMESTAMP_SQL = "STRFTIME('%s', 'now')"
 AUTO_TIMESTAMP_DEFAULT = ("created_at", "last_updated_at")
 AUTO_TIMESTAMP_UPDATE_DEFAULT = ("last_updated_at",)
 
@@ -67,6 +68,7 @@ class Database:
         enforce_foreign_keys: bool = True,
         insert_auto_timestamp_columns: List[str] = [],
         update_auto_timestamp_columns: List[str] = [],
+        use_epoch_timestamps: bool = False,
     ) -> None:
         """
         Initialize a ``Database`` object.
@@ -103,11 +105,16 @@ class Database:
         :param insert_auto_timestamp_columns: A default value for
             ``auto_timestamp_columns`` in ``insert`` and ``insert_many``. Usually set to
             ``["created_at", "last_updated_at"]`` in conjunction with a schema defined
-            using ``AutoTable``.
+            using ``AutoTable``. It is recommended to set ``use_epoch_timestamps`` to
+            ``True`` if using this parameter.
         :param update_auto_timestamp_columns: A default value for
             ``auto_timestamp_columns`` in ``update``. Usually set to
             ``["last_updated_at"]`` in conjunction with a schema defined using
-            ``AutoTable``.
+            ``AutoTable``. It is recommended to set ``use_epoch_timestamps`` to ``True``
+            if using this parameter.
+        :param use_epoch_timestamps: Store ``auto_timestamp_columns`` as seconds since
+            the Unix epoch instead of as ISO 8601 datetime strings. Recommended setting
+            is ``True``, but default is ``False`` for backwards compatibility.
         """
         # Validate arguments.
         if readonly is not None:
@@ -132,6 +139,11 @@ class Database:
 
         self.insert_auto_timestamp_columns = insert_auto_timestamp_columns
         self.update_auto_timestamp_columns = update_auto_timestamp_columns
+        self.current_timestamp_sql = (
+            CURRENT_EPOCH_TIMESTAMP_SQL
+            if use_epoch_timestamps
+            else CURRENT_ISO_8601_TIMESTAMP_SQL
+        )
 
         self.connection = sqlite3.connect(
             path,
@@ -421,7 +433,7 @@ class Database:
         extra_columns_list = []
         for column in auto_timestamp_columns_list:
             keys.append(column)
-            extra_columns_list.append(CURRENT_TIMESTAMP_SQL)
+            extra_columns_list.append(self.current_timestamp_sql)
 
         if extra_columns_list:
             extra_columns = (", " if data else "") + ", ".join(extra_columns_list)
@@ -499,7 +511,7 @@ class Database:
         extra_columns_list = []
         for column in auto_timestamp_columns_list:
             keys.append(column)
-            extra_columns_list.append(CURRENT_TIMESTAMP_SQL)
+            extra_columns_list.append(self.current_timestamp_sql)
 
         if extra_columns_list:
             extra_columns = (", " if data else "") + ", ".join(extra_columns_list)
@@ -557,7 +569,7 @@ class Database:
             updates_list.append(f"{quote(key)} = :{placeholder}")
 
         for column in auto_timestamp_columns_list:
-            updates_list.append(f"{quote(column)} = {CURRENT_TIMESTAMP_SQL}")
+            updates_list.append(f"{quote(column)} = {self.current_timestamp_sql}")
 
         if not updates_list:
             raise ISqliteError(

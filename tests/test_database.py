@@ -4,6 +4,7 @@ import time
 import unittest
 
 from isqlite import (
+    AutoTable,
     ColumnDoesNotExistError,
     Database,
     ISqliteError,
@@ -608,3 +609,23 @@ class DatabaseTests(unittest.TestCase):
             db.insert("t", {"name": "John"})
             with self.assertRaises(sqlite3.IntegrityError):
                 db.insert("t", {"name": "John"})
+
+    def test_insert_with_auto_epoch_timestamps(self):
+        current_time = int(time.time())
+        schema = Schema([AutoTable("t", [], use_epoch_timestamps=True)])
+        with Database(
+            ":memory:",
+            transaction=False,
+            insert_auto_timestamp_columns=["created_at", "last_updated_at"],
+            use_epoch_timestamps=True,
+        ) as db:
+            db.migrate(schema)
+            row = db.insert_and_get("t", {})
+
+            # Make sure the timestamps calculated in SQL are within a minute of the Unix
+            # epoch calculated in Python.
+            self.assertGreater(row["created_at"], current_time - 60)
+            self.assertLess(row["created_at"], current_time + 60)
+            self.assertGreater(row["last_updated_at"], current_time - 60)
+            self.assertLess(row["last_updated_at"], current_time + 60)
+            self.assertEqual(row["created_at"], row["last_updated_at"])

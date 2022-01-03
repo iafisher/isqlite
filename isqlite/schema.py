@@ -5,6 +5,7 @@ import attr
 import sqliteparser
 
 from . import migrations
+from .columns import integer as integer_column
 from .columns import primary_key as primary_key_column
 from .columns import timestamp as timestamp_column
 from .exceptions import ColumnDoesNotExistError, TableDoesNotExistError
@@ -63,11 +64,26 @@ class AutoTable(Table):
     """
 
     def __init__(
-        self, name: str, columns: List[Union[str, sqliteparser.ast.Column]]
+        self,
+        name: str,
+        columns: List[Union[str, sqliteparser.ast.Column]],
+        use_epoch_timestamps: bool = False,
     ) -> None:
+        """
+        Initialize an ``AutoTable`` object.
+
+        :param name: The name of the table.
+        :param columns: The ordered list of columns of the table.
+        :param use_epoch_timestamps: Store the ``created_at`` and ``last_updated_at`` as
+          seconds since the Unix epoch instead of as ISO 8601 datetime strings.
+          Recommended setting is ``True``, but default is ``False`` for backwards
+          compatibility.
+        """
+        cls = integer_column if use_epoch_timestamps else timestamp_column
+
         id_column = primary_key_column("id")
-        created_at_column = timestamp_column("created_at", required=True)
-        last_updated_at_column = timestamp_column("last_updated_at", required=True)
+        created_at_column = cls("created_at", required=True)  # type: ignore
+        last_updated_at_column = cls("last_updated_at", required=True)  # type: ignore
         columns = [id_column] + columns + [created_at_column, last_updated_at_column]
         super().__init__(name, columns)
 
