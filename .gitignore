@@ -21,3 +21,4 @@ node_modules
 *.rs.bk
 
 *.sqlite3
+/v2.md
