@@ -13,7 +13,8 @@ import click
 import sqliteparser
 from tabulate import tabulate
 
-from . import Database, Schema, migrations
+from . import Database as ISqliteDatabase
+from . import Schema, migrations
 
 # Help strings used in multiple places.
 HELP_AUTO_TIMESTAMP_CREATE = (
@@ -43,6 +44,10 @@ HELP_PLAIN_FOREIGN_KEYS = (
     + "TEXT column of the foreign key table. Pass this flag if you would rather just "
     + "see the foreign key values themselves."
 )
+
+
+def Database(*args, **kwargs):
+    return ISqliteDatabase(*args, use_epoch_timestamps=True, **kwargs)
 
 
 @click.group()
@@ -248,7 +253,7 @@ def _diff(db, schema, table, *, detect_renaming=True):
     diff = db.diff(schema, table=table, detect_renaming=detect_renaming)
     if not diff:
         print("Nothing to migrate: database matches schema.")
-        return None
+        return (None, None)
 
     tables_created = 0
     tables_dropped = 0

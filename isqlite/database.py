@@ -2,7 +2,7 @@ import collections
 import sqlite3
 import textwrap
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import sqliteparser
 from sqliteparser import quote
@@ -637,6 +637,23 @@ class Database:
         """
         pk_column = f"{quote(table)}.rowid"
         return self.delete(table, where=f"{pk_column} = :pk", values={"pk": pk})
+
+    def delete_many_by_pks(self, table: str, pks: Sequence[int]) -> None:
+        """
+        Delete multiple rows.
+
+        :param table: The database table. WARNING: This value is directly interpolated
+            into the SQL statement. Do not pass untrusted input, to avoid SQL injection
+            attacks.
+        :param pks: The list of primary keys of the rows to delete. If the list is
+            empty, this method is a no-op.
+        """
+        if len(pks) == 0:
+            return
+
+        pk_column = f"{quote(table)}.rowid"
+        markers = ",".join("?" * len(pks))
+        return self.delete(table, where=f"{pk_column} IN ({markers})", values=pks)  # type: ignore
 
     def sql(
         self,

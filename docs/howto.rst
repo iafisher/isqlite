@@ -107,7 +107,7 @@ This will query the ``employees`` table for a row with the name ``John Doe`` and
 Deleting rows
 -------------
 
-isqlite provides two methods to delete rows: ``Database.delete`` and ``Database.delete_by_pk``. Like ``Database.select`` and ``Database.update``, ``Database.delete`` accepts ``where`` and ``values`` parameters::
+isqlite provides three methods to delete rows: ``Database.delete``, ``Database.delete_by_pk``, and ``Database.delete_many_by_pks``. Like ``Database.select`` and ``Database.update``, ``Database.delete`` accepts ``where`` and ``values`` parameters::
 
    db.delete("employees", where="tenure > 100")
 

@@ -11,14 +11,19 @@ Backwards compatibility is maintained under the restrictions of Semantic Version
 Backwards compatibility is NOT guaranteed to be maintained with regards to:
 
 - Any Python interface not documented in the API reference.
-- The output of the `isqlite` command-line tool.
+- The textual output of the `isqlite` command-line tool.
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/isqlite/issues).
 
 
 ## Unreleased
+Nothing yet.
+
+
+## [1.5.0] - 2022-06-26
 ### Added
 - The `Database` and `AutoTable` constructors now accept a `use_epoch_timestamps` parameter to store auto timestamps as seconds since the Unix epoch instead of ISO 8601 datetime strings. (#69)
+- A `Database.delete_many_by_pks` method to delete multiple rows simultaneously using a list of PKs. (#77)
 
 ### Changed
 - `isqlite update` now treats `NULL` as a special value, in line with `isqlite iupdate`.

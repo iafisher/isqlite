@@ -332,6 +332,25 @@ class DatabaseTests(unittest.TestCase):
         student = self.db.get_by_pk("students", pk)
         self.assertIsNone(student)
 
+    def test_delete_many_by_pks(self):
+        student_ids = [row["id"] for row in self.db.select("students")]
+        one_not_to_delete = student_ids.pop()
+        # Make sure we are in fact deleting multiple rows.
+        self.assertGreater(len(student_ids), 1)
+
+        self.db.delete_many_by_pks("students", student_ids)
+
+        self.assertEqual(self.db.count("students"), 1)
+        self.assertIsNotNone(self.db.get_by_pk("students", one_not_to_delete))
+        self.assertIsNone(self.db.get_by_pk("students", student_ids[0]))
+
+    def test_delete_many_by_pks_with_empty_input(self):
+        count_before = self.db.count("students")
+        self.db.delete_many_by_pks("students", [])
+        count_after = self.db.count("students")
+
+        self.assertEqual(count_before, count_after)
+
     def test_select(self):
         for i in range(100):
             self.db.insert(
