@@ -187,13 +187,13 @@ def main_delete(db_path, table, pk, *, where, no_confirm):
     with Database(db_path) as db:
         if pk is not None:
             row = db.get_by_pk(table, pk, get_related=True)
-            for key, value in row.items():
-                if isinstance(value, collections.OrderedDict):
-                    row[key] = get_column_as_string(value)
-
             if row is None:
                 print(f"Row {pk} not found in table {table!r}.")
                 sys.exit(1)
+
+            for key, value in row.items():
+                if isinstance(value, collections.OrderedDict):
+                    row[key] = get_column_as_string(value)
 
             prettyprint_row(row)
 

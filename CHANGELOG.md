@@ -17,7 +17,8 @@ Numbers in parentheses after entries refer to issues in the [GitHub issue tracke
 
 
 ## Unreleased
-Nothing yet.
+### Fixed
+- `isqlite delete` now prints a nice error message instead of a stack trace when the row to be deleted does not exist.
 
 
 ## [1.5.0] - 2022-06-26
