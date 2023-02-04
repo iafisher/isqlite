@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import sqlite3
+import warnings
 
 # Re-export some names from sqliteparser.
 from sqliteparser.ast import OnConflict, OnDelete, OnUpdate
@@ -14,6 +15,11 @@ from .exceptions import (
     TableDoesNotExistError,
 )
 from .schema import AutoTable, Schema, Table
+
+warnings.warn(
+    "The isqlite library is deprecated and no longer maintained as of February 2023.",
+    DeprecationWarning,
+)
 
 
 def sqlite3_convert_boolean(b):

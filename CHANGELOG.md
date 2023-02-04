@@ -1,4 +1,6 @@
 # Changelog
+**WARNING: This project is no longer maintained.**
+
 All notable changes to isqlite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -16,10 +18,11 @@ Backwards compatibility is NOT guaranteed to be maintained with regards to:
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/isqlite/issues).
 
 
-## Unreleased
+## [1.5.1] - 2023-02-04
+- The isqlite library is now deprecated. This will be the last release.
+
 ### Fixed
 - `isqlite delete` now prints a nice error message instead of a stack trace when the row to be deleted does not exist.
-
 
 ## [1.5.0] - 2022-06-26
 ### Added

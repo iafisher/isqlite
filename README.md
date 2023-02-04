@@ -1,3 +1,5 @@
+**WARNING: This project is no longer maintained. It is recommended that you use a proper ORM like [SQLAlchemy](https://www.sqlalchemy.org/) or [Django's ORM](https://docs.djangoproject.com/en/4.1/) instead.**
+
 # isqlite
 isqlite is an improved Python interface to SQLite. It has a more convenient API, support for schema diffing and migrations, and a command-line interface.
 
