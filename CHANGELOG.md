@@ -18,11 +18,14 @@ Backwards compatibility is NOT guaranteed to be maintained with regards to:
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/isqlite/issues).
 
 
-## [1.5.1] - 2023-02-04
+## [1.6.0] - 2023-02-04
 - The isqlite library is now deprecated. This will be the last release.
 
+
+## [1.5.1] - 2023-02-04
 ### Fixed
 - `isqlite delete` now prints a nice error message instead of a stack trace when the row to be deleted does not exist.
+
 
 ## [1.5.0] - 2022-06-26
 ### Added

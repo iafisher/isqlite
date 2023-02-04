@@ -1,6 +1,9 @@
 Limitations
 ===========
 
+.. warning::
+    This project is **no longer maintained** as of February 2023. It is recommended that you use a proper ORM like `SQLAlchemy <https://www.sqlalchemy.org/>`_ or `Django's ORM <https://docs.djangoproject.com/en/4.1/>`_ instead.
+
 isqlite is highly suitable for applications that use SQLite as an `application file format <https://sqlite.org/appfileformat.html>`_, and for *ad hoc* operations and migrations on existing SQLite databases. It is less suitable for circumstances in which traditional database engines are used (e.g., web applications), because if you eventually decide that you need to migrate from SQLite to a full-scale RDMS like MySQL or Postgres, you will have to rewrite all the code that uses isqlite.
 
 

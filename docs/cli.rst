@@ -1,6 +1,9 @@
 Command-line interface
 ======================
 
+.. warning::
+    This project is **no longer maintained** as of February 2023. It is recommended that you use a proper ORM like `SQLAlchemy <https://www.sqlalchemy.org/>`_ or `Django's ORM <https://docs.djangoproject.com/en/4.1/>`_ instead.
+
 The isqlite Python library comes with a command-line program called ``isqlite`` that allows you to query and change SQLite databases from the command line. This page describes the basics of each command supported by ``isqlite``. For full information, run ``isqlite --help`` or ``isqlite <subcommand> --help``.
 
 

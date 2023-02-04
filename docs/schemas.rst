@@ -1,6 +1,9 @@
 Database schemas
 ================
 
+.. warning::
+    This project is **no longer maintained** as of February 2023. It is recommended that you use a proper ORM like `SQLAlchemy <https://www.sqlalchemy.org/>`_ or `Django's ORM <https://docs.djangoproject.com/en/4.1/>`_ instead.
+
 Schema-changing operations like creating a new table, altering a column, or dropping a column altogether are common in SQL databases. isqlite makes schema changes easy with a migration system inspired by Django. All you need to do is define your desired schema in Python, and isqlite will compare it against the database's actual schema and make the necessary changes so that they match, while keeping your data intact. You can also directly make schema-changing operations from the command-line, without having to write a schema in Python.
 
 
